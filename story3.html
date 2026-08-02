@@ -339,6 +339,11 @@
     tone(220,0.25,'square',0.2,0.15,700);
     tone(150,0.3,'sawtooth',0.22,0.3,30);
   }
+  function playRage(){
+    noiseHit(0.35,0.32,0,400);
+    tone(90,0.4,'sawtooth',0.3,0,35);
+    tone(280,0.16,'square',0.22,0.12,900);
+  }
   function playLunge(){
     noiseHit(0.22,0.32,0,500);
     tone(180,0.18,'sawtooth',0.26,0,40);
@@ -437,6 +442,28 @@
     tone(880,0.18,'sawtooth',0.14,0.18,440);
   }
 
+  function playDreadThud(hard){
+    if(muted || !audioCtx) return;
+    var t = audioCtx.currentTime;
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(hard ? 95 : 68, t);
+    osc.frequency.exponentialRampToValueAtTime(hard ? 30 : 24, t+(hard ? 0.22 : 0.42));
+    gain.gain.setValueAtTime(hard ? 0.4 : 0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t+(hard ? 0.38 : 0.62));
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t); osc.stop(t+(hard ? 0.42 : 0.66));
+  }
+
+  function playSting(){
+    if(muted || !audioCtx) return;
+    [830.61, 880.00, 932.33].forEach(function(f, i){
+      tone(f, 0.55, 'sawtooth', 0.11, i*0.012);
+    });
+    noiseHit(0.3, 0.16, 0, 2200);
+  }
+
   var THEME = 'cyberpunk'; // 'city' | 'forest' | 'cyberpunk'
 
   var CHORDS = [
@@ -452,12 +479,12 @@
     { bass:87.31, pad:[174.61,220.00,261.63] }  // F major
   ];
   var BOSS_CHORDS = [
-    { bass:55.00, pad:[110.00,164.81], arp:[220.00,329.63,440.00,329.63] }, // A5 power chord
-    { bass:49.00, pad:[98.00,146.83], arp:[196.00,293.66,392.00,293.66] },  // G5 power chord
-    { bass:43.65, pad:[87.31,130.81], arp:[174.61,261.63,349.23,261.63] },  // F5 power chord
-    { bass:55.00, pad:[110.00,130.81], arp:[220.00,261.63,220.00,196.00] } // A minor resolve
+    { bass:36.71, pad:[146.83,155.56,207.65], shriek:[622.25,659.26,830.61,659.26] }, // D cluster + tritone
+    { bass:30.87, pad:[123.47,130.81,174.61], shriek:[493.88,523.25,698.46,523.25] }, // B cluster
+    { bass:34.65, pad:[138.59,146.83,196.00], shriek:[554.37,587.33,783.99,587.33] }, // C# cluster
+    { bass:32.70, pad:[130.81,138.59,185.00], shriek:[523.25,554.37,739.99,554.37] }  // C cluster
   ];
-  var BPM = 128;
+  var BPM = 92;
   var STEP_DUR = 60/BPM/4;
   var seqStep = 0, seqBar = 0;
   var musicMode = 'normal';
@@ -465,29 +492,38 @@
   function scheduleStep(){
     if(!muted){
       var boss = musicMode === 'boss';
-      var dark = boss || THEME === 'cyberpunk';
-      var chordTable = dark ? BOSS_CHORDS : (THEME === 'forest' ? FOREST_CHORDS : CHORDS);
-      var chord = chordTable[seqBar % 4];
-      if(seqStep % 4 === 0) playKick(boss);
+      var chord = BOSS_CHORDS[seqBar % 4];
+
+      if(boss){
+        if(seqStep % 4 === 0) playDreadThud(true);
+      } else {
+        if(seqStep === 0 || seqStep === 8) playDreadThud(false);
+      }
+
       if(seqStep === 0){
-        var bassGain = dark ? 0.3 : (THEME === 'forest' ? 0.22 : 0.26);
-        var bassWave = dark ? 'sawtooth' : (THEME === 'forest' ? 'triangle' : 'sine');
-        playBass808(chord.bass, 0.5, bassGain, bassWave);
-        playPad(chord.pad, STEP_DUR*16, dark ? 0.06 : 0.045, dark);
+        playBass808(chord.bass, boss ? 0.9 : 1.6, boss ? 0.32 : 0.24, 'sawtooth');
+        playPad(chord.pad, STEP_DUR*16, boss ? 0.065 : 0.05, true);
       }
-      if(seqStep === 4 || seqStep === 12) playClap();
-      var hatGain = (seqStep % 4 === 2) ? 0.09 : 0.05;
-      noiseHit(0.035, hatGain, 0, dark ? 6500 : 7500);
-      if(dark && chord.arp && seqStep % 2 === 0){
-        playArp(chord.arp[(seqStep/2) % chord.arp.length]);
+
+      if(boss){
+        var hatGain = (seqStep % 4 === 2) ? 0.09 : 0.06;
+        noiseHit(0.03, hatGain, 0, 6000);
+      } else if(Math.random() < 0.12){
+        noiseHit(0.02, 0.035, 0, 8000);
       }
-      if(seqStep === 14 && (dark || seqBar % 2 === 1)){
-        noiseHit(0.02,0.05,0,7500);
-        noiseHit(0.02,0.05,STEP_DUR*0.33,7500);
-        noiseHit(0.02,0.05,STEP_DUR*0.66,7500);
+
+      if(boss && chord.shriek && seqStep % 2 === 0){
+        playArp(chord.shriek[(seqStep/2) % chord.shriek.length]);
       }
-      if(THEME === 'forest' && !boss && Math.random() < 0.05){
-        playChirp();
+
+      if(Math.random() < (boss ? 0.012 : 0.006)){
+        playSting();
+      }
+
+      if(boss && seqStep === 14){
+        noiseHit(0.02,0.06,0,7000);
+        noiseHit(0.02,0.06,STEP_DUR*0.33,7000);
+        noiseHit(0.02,0.06,STEP_DUR*0.66,7000);
       }
     }
     seqStep = (seqStep+1) % 16;
@@ -543,7 +579,9 @@
   var endingActive, endingTimer;
 
   var BOSS2_HEALTH = 10;
-  var bossForm2, bossAttackVariant, bossZoom, bossTransformFlash;
+  var BOSS3_HEALTH = 12;
+  var RAGE_SPEED_MULT = 0.62;
+  var bossForm2, bossAttackVariant, bossZoom, bossTransformFlash, bossRageMode;
   var cutsceneActive = false;
   var cutsceneFlashAlpha = 0;
   var bossImg1 = new Image(); bossImg1.src = 'overlord-1.png';
@@ -571,6 +609,7 @@
     nightFactor = 0; flashTimer = 2+Math.random()*2; flashAlpha = 0;
     endingActive = false; endingTimer = 0;
     bossForm2 = false; bossAttackVariant = 'lunge'; bossZoom = 0; bossTransformFlash = 0;
+    bossRageMode = false;
     cutsceneActive = false;
     cutsceneFlashAlpha = 0;
   }
@@ -899,6 +938,12 @@
     { img:'savior-2.jpg', text:"(Oh god... what now...)" }
   ];
 
+  var RAGE_LINES = [
+    { img:'villain-final.jpg', text:"You think that was my limit?! I'm just getting STARTED!" },
+    { img:'savior-3.jpg', text:"...he's not done. Of course he's not done." },
+    { img:'villain-final.jpg', text:"FEEL MY TRUE FURY!!!", flash:true }
+  ];
+
   var FINAL_DEFEAT_LINES = [
     { img:'villain-final.jpg', text:"Impossible... h..ow...how... I should've... ki...lll...you....", flash:true }
   ];
@@ -996,6 +1041,7 @@
     if(!bossActive && !finalBossDefeated){
       if(distance >= nextBossDistance){
         obstacles = []; coins = []; powerUps = [];
+        musicMode = 'boss'; seqStep = 0; seqBar = 0;
         startCutscene(BOSS_REVEAL_LINES, function(){
           bossActive = true;
           bossEncounterCount++;
@@ -1037,7 +1083,8 @@
       if(bossPhase === 'moving'){
         if(Math.abs(bossLaneVisual-bossHoverTarget) < 0.04){
           bossPhase = 'charging';
-          bossPhaseTimer = bt.chargeMin + Math.random()*(bt.chargeMax-bt.chargeMin);
+          var rageMult1 = bossRageMode ? RAGE_SPEED_MULT : 1;
+          bossPhaseTimer = (bt.chargeMin + Math.random()*(bt.chargeMax-bt.chargeMin)) * rageMult1;
         }
       } else if(bossPhase === 'charging'){
         bossPhaseTimer -= dt;
@@ -1057,7 +1104,8 @@
         bossPhaseTimer -= dt;
         if(bossPhaseTimer <= 0){
           bossPhase = 'cooldown';
-          bossPhaseTimer = bt.cooldownMin + Math.random()*(bt.cooldownMax-bt.cooldownMin);
+          var rageMult2 = bossRageMode ? RAGE_SPEED_MULT : 1;
+          bossPhaseTimer = (bt.cooldownMin + Math.random()*(bt.cooldownMax-bt.cooldownMin)) * rageMult2;
         }
       } else if(bossPhase === 'cooldown'){
         bossPhaseTimer -= dt;
@@ -1075,6 +1123,20 @@
                 bossLabel.textContent = 'TRUE OVERLORD';
                 bossTransformFlash = 1.8;
                 playTransform();
+                bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
+                bossTargetLanes = pickTargetLanes(bt.beamCount);
+                bossHoverTarget = avgLane(bossTargetLanes);
+                bossPhase = 'moving';
+              });
+            } else if(!bossRageMode){
+              startCutscene(RAGE_LINES, function(){
+                bossRageMode = true;
+                bossHealth = BOSS3_HEALTH;
+                bossMaxHealth = BOSS3_HEALTH;
+                bossFill.style.width = '100%';
+                bossLabel.textContent = 'OVERLORD: ENRAGED';
+                bossTransformFlash = 1.4;
+                playRage();
                 bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
                 bossTargetLanes = pickTargetLanes(bt.beamCount);
                 bossHoverTarget = avgLane(bossTargetLanes);
@@ -1555,6 +1617,16 @@
     var bodyW = bodyH*aspect;
 
     drawGroundShadow(x, baseY, bodyW*0.42, 0.28);
+
+    if(bossRageMode){
+      var ragePulse = 0.5+0.5*Math.sin(performance.now()/140);
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,20,20,'+(0.18+0.14*ragePulse).toFixed(2)+')';
+      ctx.beginPath();
+      ctx.arc(x, hoverY-bodyH*0.4, bodyW*0.62, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     if(bossPhase==='charging'){
       var glowPulse = 0.55+0.35*Math.sin(performance.now()/90);
