@@ -708,6 +708,8 @@
 </head>
 <body>
 
+  <audio id="bgMusic" src="D_B.mp3" loop preload="auto"></audio>
+
   <div id="introScreen" class="intro-screen" tabindex="0" role="button" aria-label="Tap to enter Savior Pixel Art">
     <div class="intro-inner">
       <p class="intro-eyebrow">The Arcade Is Open</p>
@@ -952,248 +954,53 @@
   </script>
 
   <script>
-  // Procedurally generated smoky jazz-lounge loop — rhodes chords, a walking
-  // bass, and brushed drums — no audio file needed, so the whole page stays
-  // a single self-contained file. Lives only on this menu page: it never
-  // gets included on the individual game containers.
+  // Background soundtrack — "D_B" by Savior — plays as a looping <audio>
+  // element. Lives only on this menu page: it never gets included on the
+  // individual game containers.
   var Music = (function(){
-    var ctx, master, comp, delay, feedback, damp, noiseBuffer;
+    var audio = document.getElementById('bgMusic');
     var running = false, muted = false;
-    var beatIndex = 0, beatTimer = null, suspendTimer = null;
-    var currentPadVoices = [];
-    var TARGET_VOL = 0.17;
-    var BEAT_MS = 700; // ~85bpm, laid-back ballad feel
+    var fadeRAF = null;
+    var TARGET_VOL = 0.55;
 
-    // ii-V-I-vi jazz turnaround: Cmaj7 - Am7 - Dm7 - G7.
-    // "bass" is each chord's own tones dropped an octave, so the walking
-    // bass always lands on a chord tone and never clashes.
-    var CHORDS = [
-      { tones: [60, 64, 67, 71], bass: [48, 52, 55, 59] }, // Cmaj7
-      { tones: [57, 60, 64, 67], bass: [45, 48, 52, 55] }, // Am7
-      { tones: [50, 53, 57, 60], bass: [38, 41, 45, 48] }, // Dm7
-      { tones: [55, 59, 62, 65], bass: [43, 47, 50, 53] }  // G7
-    ];
-
-    function noteFreq(m){ return 440 * Math.pow(2, (m - 69) / 12); }
-
-    function makeNoiseBuffer(){
-      var len = Math.floor(ctx.sampleRate * 0.4);
-      var buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      var data = buf.getChannelData(0);
-      for (var i = 0; i < len; i++){ data[i] = Math.random() * 2 - 1; }
-      return buf;
-    }
-
-    function ensureContext(){
-      if (ctx) return;
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return;
-      ctx = new AC();
-
-      master = ctx.createGain();
-      master.gain.value = 0;
-
-      comp = ctx.createDynamicsCompressor();
-      delay = ctx.createDelay(1.0);
-      delay.delayTime.value = 0.18;
-      feedback = ctx.createGain();
-      feedback.gain.value = 0.18;
-      damp = ctx.createBiquadFilter();
-      damp.type = 'lowpass';
-      damp.frequency.value = 1800;
-
-      delay.connect(damp);
-      damp.connect(feedback);
-      feedback.connect(delay);
-
-      master.connect(comp);
-      comp.connect(ctx.destination);
-      master.connect(delay);
-      delay.connect(comp);
-
-      noiseBuffer = makeNoiseBuffer();
-    }
-
-    function stopChordVoices(atTime){
-      currentPadVoices.forEach(function(v){
-        v.gain.gain.cancelScheduledValues(atTime);
-        v.gain.gain.setValueAtTime(v.gain.gain.value, atTime);
-        v.gain.gain.linearRampToValueAtTime(0, atTime + 0.4);
-        v.oscs.forEach(function(o){ o.stop(atTime + 0.5); });
-      });
-      currentPadVoices = [];
-    }
-
-    function playRhodesChord(chord){
-      var now = ctx.currentTime;
-      stopChordVoices(now);
-      var barSeconds = (BEAT_MS * 4) / 1000;
-
-      chord.tones.forEach(function(m, i){
-        var filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.value = 2100;
-        filter.Q.value = 0.4;
-
-        var g = ctx.createGain();
-        g.gain.value = 0;
-        filter.connect(g);
-        g.connect(master);
-
-        var tremolo = ctx.createOscillator();
-        tremolo.type = 'sine';
-        tremolo.frequency.value = 4.6;
-        var tremoloGain = ctx.createGain();
-        tremoloGain.gain.value = 0.045;
-        tremolo.connect(tremoloGain);
-        tremoloGain.connect(g.gain);
-        tremolo.start();
-
-        var oscs = [tremolo];
-        [0, 7].forEach(function(detune){
-          var osc = ctx.createOscillator();
-          osc.type = i === 0 ? 'sine' : 'triangle';
-          osc.frequency.value = noteFreq(m);
-          osc.detune.value = detune;
-          osc.connect(filter);
-          osc.start();
-          oscs.push(osc);
-        });
-
-        var peak = 0.2 - i * 0.018;
-        g.gain.setValueAtTime(0, now);
-        g.gain.linearRampToValueAtTime(peak, now + 0.02);
-        g.gain.linearRampToValueAtTime(peak * 0.55, now + 0.5);
-        g.gain.linearRampToValueAtTime(0, now + barSeconds);
-
-        currentPadVoices.push({ gain: g, oscs: oscs });
-      });
-    }
-
-    function playBassNote(m){
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.value = noteFreq(m);
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 500;
-      var g = ctx.createGain();
-      g.gain.value = 0;
-      osc.connect(filter);
-      filter.connect(g);
-      g.connect(master);
-      osc.start(now);
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.3, now + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.001, now + (BEAT_MS / 1000) * 0.9);
-      osc.stop(now + BEAT_MS / 1000);
-    }
-
-    function playKick(){
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(90, now);
-      osc.frequency.exponentialRampToValueAtTime(45, now + 0.15);
-      var g = ctx.createGain();
-      g.gain.setValueAtTime(0.16, now);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-      osc.connect(g);
-      g.connect(master);
-      osc.start(now);
-      osc.stop(now + 0.25);
-    }
-
-    function playBrush(){
-      if (!noiseBuffer) return;
-      var now = ctx.currentTime;
-      var src = ctx.createBufferSource();
-      src.buffer = noiseBuffer;
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 3200;
-      filter.Q.value = 0.6;
-      var g = ctx.createGain();
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.05, now + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-      src.connect(filter);
-      filter.connect(g);
-      g.connect(master);
-      src.start(now);
-      src.stop(now + 0.2);
-    }
-
-    function playMelodyNote(m){
-      var now = ctx.currentTime;
-      var osc = ctx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.value = noteFreq(m);
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = 1600;
-      var g = ctx.createGain();
-      g.gain.value = 0;
-      osc.connect(filter);
-      filter.connect(g);
-      g.connect(master);
-      osc.start(now);
-      g.gain.setValueAtTime(0, now);
-      g.gain.linearRampToValueAtTime(0.09, now + 0.04);
-      g.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
-      osc.stop(now + 1.2);
-    }
-
-    function tick(){
-      if (!running) return;
-      var beatInBar = beatIndex % 4;
-      var chord = CHORDS[Math.floor(beatIndex / 4) % CHORDS.length];
-
-      if (beatInBar === 0){
-        playRhodesChord(chord);
-        playKick();
+    function fadeTo(target, durationMs){
+      if (!audio) return;
+      if (fadeRAF) cancelAnimationFrame(fadeRAF);
+      var startVol = audio.volume;
+      var startTime = performance.now();
+      function step(now){
+        var t = Math.max(0, Math.min(1, (now - startTime) / durationMs));
+        var vol = startVol + (target - startVol) * t;
+        audio.volume = Math.max(0, Math.min(1, vol));
+        if (t < 1){
+          fadeRAF = requestAnimationFrame(step);
+        } else {
+          fadeRAF = null;
+          if (target === 0 && muted) audio.pause();
+        }
       }
-      if (beatInBar === 2) playKick();
-      playBassNote(chord.bass[beatInBar]);
-      if (beatInBar === 1 || beatInBar === 3) playBrush();
-
-      if (beatInBar === 3 && Math.random() < 0.5){
-        var m = chord.tones[Math.floor(Math.random() * chord.tones.length)] + 12;
-        playMelodyNote(m);
-      }
-
-      beatIndex++;
-      beatTimer = setTimeout(tick, BEAT_MS);
+      fadeRAF = requestAnimationFrame(step);
     }
 
     function setMuted(m){
       muted = m;
-      if (!ctx) return;
-      clearTimeout(suspendTimer);
-      var now = ctx.currentTime;
-      master.gain.cancelScheduledValues(now);
-      master.gain.setValueAtTime(master.gain.value, now);
+      if (!audio) return;
       if (muted){
-        master.gain.linearRampToValueAtTime(0, now + 0.6);
-        suspendTimer = setTimeout(function(){
-          if (muted && ctx.state === 'running') ctx.suspend();
-        }, 650);
+        fadeTo(0, 600);
       } else {
-        if (ctx.state === 'suspended') ctx.resume();
-        master.gain.linearRampToValueAtTime(TARGET_VOL, now + 0.8);
+        if (audio.paused){
+          audio.play().catch(function(){});
+        }
+        fadeTo(TARGET_VOL, 800);
       }
     }
 
     function start(){
-      ensureContext();
-      if (!ctx) return false;
-      if (ctx.state === 'suspended') ctx.resume();
+      if (!audio) return false;
       if (!running){
         running = true;
-        beatIndex = 0;
-        clearTimeout(beatTimer);
-        tick();
+        audio.volume = 0;
+        audio.play().catch(function(){ running = false; });
       }
       setMuted(false);
       return true;
@@ -1205,8 +1012,8 @@
       return !muted;
     }
 
-    function onHidden(){ if (ctx && ctx.state === 'running') ctx.suspend(); }
-    function onVisible(){ if (ctx && running && !muted && ctx.state === 'suspended') ctx.resume(); }
+    function onHidden(){ if (audio && !audio.paused) audio.pause(); }
+    function onVisible(){ if (audio && running && !muted && audio.paused) audio.play().catch(function(){}); }
 
     document.addEventListener('visibilitychange', function(){
       if (document.hidden) onHidden(); else onVisible();
