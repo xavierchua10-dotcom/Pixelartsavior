@@ -731,7 +731,7 @@
     updateHeartsHUD();
     hint.classList.add('show');
     setTimeout(function(){ hint.classList.remove('show'); }, 2600);
-    startBeat();
+    if(!beatTimer){ startBeat(); }
   }
 
   function vibrate(pattern){
@@ -802,6 +802,7 @@
 
   function advanceIntro(){
     ensureAudio();
+    if(!beatTimer){ startBeat(); }
     introIndex++;
     if(introIndex < introLines.length){
       showIntroLine(introIndex);

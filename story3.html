@@ -118,6 +118,12 @@
   }
   .intro-portrait{ width:100%; height:100%; object-fit:cover; object-position:50% 15%; display:block; }
 
+  @keyframes portraitFlash{
+    0%{ filter:brightness(4) saturate(0.3); }
+    100%{ filter:brightness(1) saturate(1); }
+  }
+  .portrait-flash-anim{ animation:portraitFlash 0.35s ease-out; }
+
   .speech-bubble{
     position:relative; max-width:270px; background:var(--black);
     border:3px solid var(--ink); box-shadow:4px 4px 0 #000;
@@ -825,7 +831,7 @@
     updateHeartsHUD();
     hint.classList.add('show');
     setTimeout(function(){ hint.classList.remove('show'); }, 2600);
-    startBeat();
+    if(!beatTimer){ startBeat(); }
   }
 
   function vibrate(pattern){
@@ -912,6 +918,7 @@
 
   function advanceIntro(){
     ensureAudio();
+    if(!beatTimer){ startBeat(); }
     introIndex++;
     if(introIndex < introLines.length){
       showIntroLine(introIndex);
@@ -970,6 +977,11 @@
   function showCutsceneLine(i){
     var line = cutsceneLines[i];
     if(line.flash) cutsceneFlashAlpha = 1.0;
+    if(line.flash || line.cardFlash){
+      cutscenePortraitWrap.classList.remove('portrait-flash-anim');
+      void cutscenePortraitWrap.offsetWidth;
+      cutscenePortraitWrap.classList.add('portrait-flash-anim');
+    }
     if(line.onShow) line.onShow();
     cutscenePortrait.src = line.img;
     cutsceneText.textContent = line.text;
@@ -1014,8 +1026,8 @@
   var TRANSFORM_LINES = [
     { img:'villain-laugh.jpg', text:"Not bad, not bad at all. HAHAHAHAHA!!!" },
     { img:'savior-2.jpg', text:"Wait— just listen to me—" },
-    { img:'villain-rage.jpg', text:"This is for you. BEHOLD!!!" },
-    { img:'villain-thirdeye.jpg', text:"ARGHHHHHHHHH!!!!!!!!" },
+    { img:'villain-rage.jpg', text:"This is for you. BEHOLD!!!", cardFlash:true },
+    { img:'villain-thirdeye.jpg', text:"ARGHHHHHHHHH!!!!!!!!", cardFlash:true },
     { img:'villain-final.jpg', text:"BEHOLD TRUE POWER — POWER OF THE GODS, POWER OF THE UNIVERSE ITSELF!", flash:true,
       onShow:function(){
         bossForm2 = true;
