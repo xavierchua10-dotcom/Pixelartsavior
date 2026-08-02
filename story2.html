@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Pixel Rush — Story 2</title>
+<link rel="manifest" href="manifest-story2.json">
+<meta name="theme-color" content="#a855f7">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
@@ -174,8 +180,9 @@
       <div class="score-label">LIVES</div>
       <div class="hearts" id="heartsRow"></div>
     </div>
-    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
       <button class="mute-btn" id="muteBtn">🔊</button>
+      <button class="mute-btn" id="pauseBtn">⏸</button>
     </div>
   </div>
   <div class="powerups" id="powerupBar"></div>
@@ -208,15 +215,23 @@
     <div class="mini-speech"><div class="speech-text" id="miniText"></div></div>
   </div>
 
-  <div class="panel" id="overPanel">
+    <div class="panel" id="pausePanel">
+    <div class="title" style="font-size:clamp(20px,7vw,30px);">PAUSED</div>
+    <button class="btn" id="resumeBtn">RESUME</button>
+    <button class="btn" id="pauseMenuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
+  </div>
+
+<div class="panel" id="overPanel">
     <div class="title" style="font-size:clamp(18px,6vw,26px); color:var(--red); text-shadow:3px 3px 0 #000;">GAME OVER</div>
     <button class="btn" id="retryBtn">RUN AGAIN</button>
+    <button class="btn" id="menuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
   </div>
 
   <div class="panel" id="victoryPanel">
     <div class="title" style="color:var(--yellow); text-shadow:3px 3px 0 #000, -1px -1px 0 #b5271f;">THE END</div>
     <div class="subtitle" style="margin-bottom:10px;">The canopy breaks. Morning, or something like it, waits ahead.</div>
     <button class="btn" id="victoryRetryBtn">RUN AGAIN</button>
+    <button class="btn" id="victoryMenuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
   </div>
 
   <div class="hint" id="hint">swipe or use arrow keys</div>
@@ -260,8 +275,14 @@
   var overPanel = document.getElementById('overPanel');
   var victoryPanel = document.getElementById('victoryPanel');
   var victoryRetryBtn = document.getElementById('victoryRetryBtn');
+  var victoryMenuBtn = document.getElementById('victoryMenuBtn');
   var retryBtn = document.getElementById('retryBtn');
+  var menuBtn = document.getElementById('menuBtn');
   var muteBtn = document.getElementById('muteBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
+  var pausePanel = document.getElementById('pausePanel');
+  var resumeBtn = document.getElementById('resumeBtn');
+  var pauseMenuBtn = document.getElementById('pauseMenuBtn');
   var hint = document.getElementById('hint');
   var powerupBar = document.getElementById('powerupBar');
   var bossBar = document.getElementById('bossBar');
@@ -272,6 +293,11 @@
   var audioCtx = null;
   var muted = false;
   var beatTimer = null;
+  var paused = false;
+
+  try{
+    if(localStorage.getItem('pixelrush-muted') === 'true'){ muted = true; }
+  }catch(e){}
 
   function ensureAudio(){
     if(!audioCtx){
@@ -478,10 +504,13 @@
     beatTimer = setInterval(scheduleStep, STEP_DUR*1000);
   }
   function stopBeat(){ if(beatTimer){ clearInterval(beatTimer); beatTimer=null; } }
+  function resumeBeat(){ if(!beatTimer){ beatTimer = setInterval(scheduleStep, STEP_DUR*1000); } }
 
+  muteBtn.textContent = muted ? '🔇' : '🔊';
   muteBtn.addEventListener('click', function(){
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
+    try{ localStorage.setItem('pixelrush-muted', String(muted)); }catch(e){}
   });
 
   // ---------- Game constants ----------
@@ -691,6 +720,8 @@
   function startGame(){
     ensureAudio();
     reset();
+    paused = false;
+    pausePanel.classList.remove('show');
     state = 'playing';
     overPanel.classList.remove('show');
     victoryPanel.classList.remove('show');
@@ -703,10 +734,15 @@
     startBeat();
   }
 
+  function vibrate(pattern){
+    try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+  }
+
   function gameOver(){
     state = 'gameover';
     stopBeat();
     playCrash();
+    vibrate([40,60,40,60,120]);
     hud.classList.remove('show');
     powerupBar.classList.remove('show');
     bossBar.classList.remove('show');
@@ -734,6 +770,7 @@
     if(activeEffects.shield>0){
       activeEffects.shield = 0;
       playShieldBreak();
+      vibrate(35);
       burst(x,y,'#3ca7e0',14);
       return;
     }
@@ -743,16 +780,17 @@
     hitFlashAlpha = 0.45;
     updateHeartsHUD();
     playHurt();
+    vibrate(70);
     burst(x,y,'#e4423f',10);
     if(lives<=0) gameOver();
   }
 
   // ---------- Opening cutscene ----------
   var introLines = [
-    { img:'savior-3.jpg', text:"Where is this now, hell nah.." },
-    { img:'savior-2.jpg', text:"This places are so familiar if I am not mistaken...or I am wrong." },
-    { img:'savior-1.jpg', text:"I am at desert, or hills, I am not sure where to heading right now.." },
-    { img:'savior-2.jpg', text:"It's tempting to stop right now, I had to find out where am I at." }
+    { img:'savior-3.jpg', text:"Where is this, man? Hell no..." },
+    { img:'savior-2.jpg', text:"This place feels familiar... unless I'm wrong." },
+    { img:'savior-1.jpg', text:"Desert? Hills? I don't even know where I'm heading." },
+    { img:'savior-2.jpg', text:"Tempting to just stop here... but I need to find out where I am." }
   ];
   var introIndex = 0;
 
@@ -812,6 +850,27 @@
   retryBtn.addEventListener('click', startGame);
   victoryRetryBtn.addEventListener('click', startGame);
 
+  function goToMenu(){
+    window.location.href = 'index.html';
+  }
+  menuBtn.addEventListener('click', goToMenu);
+  victoryMenuBtn.addEventListener('click', goToMenu);
+  pauseMenuBtn.addEventListener('click', goToMenu);
+
+  function togglePause(){
+    if(state !== 'playing') return;
+    paused = !paused;
+    if(paused){
+      pausePanel.classList.add('show');
+      stopBeat();
+    } else {
+      pausePanel.classList.remove('show');
+      resumeBeat();
+    }
+  }
+  pauseBtn.addEventListener('click', togglePause);
+  resumeBtn.addEventListener('click', togglePause);
+
   // ---------- Update ----------
   function updatePowerupHUD(){
     var html = '';
@@ -821,6 +880,7 @@
 
   function update(dt){
     if(state !== 'playing') return;
+    if(paused) return;
 
     distance += speed*dt*140;
     difficulty = Math.min(1, distance/4200);
@@ -921,8 +981,8 @@
         bossWarningLabel = BOSS_TYPES[upcomingIdx].name + ' INCOMING';
         bossTaunt = BOSS_TAUNTS[upcomingIdx];
         showMiniDialogue([
-          { img:'savior-3.jpg', text:"Sheesh, it's making me headache with the flash, wth..." },
-          { img:'savior-2.jpg', text:"What is this now?!!" }
+          { img:'savior-3.jpg', text:"Sheesh, this flash is giving me a headache... what the hell." },
+          { img:'savior-2.jpg', text:"What now?!" }
         ]);
       }
     } else if(bossActive){
@@ -969,8 +1029,8 @@
               endingActive = true;
               endingTimer = ENDING_DURATION;
               showMiniDialogue([
-                { img:'savior-1.jpg', text:"Don't tell me I had to run again next time" },
-                { img:'savior-2.jpg', text:"Don't tell me...it's a loop I am facing...", hold:4000 }
+                { img:'savior-1.jpg', text:"Don't tell me I have to do this again..." },
+                { img:'savior-2.jpg', text:"Don't tell me... I'm stuck in some kind of loop.", hold:4000 }
               ]);
             } else {
               nextBossDistance = distance + BOSS_INTERVAL;

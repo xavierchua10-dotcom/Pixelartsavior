@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Pixel Rush — Story 3</title>
+<link rel="manifest" href="manifest-story3.json">
+<meta name="theme-color" content="#a855f7">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
 <style>
@@ -185,8 +191,9 @@
       <div class="score-label">LIVES</div>
       <div class="hearts" id="heartsRow"></div>
     </div>
-    <div style="display:flex; flex-direction:column; align-items:flex-end;">
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
       <button class="mute-btn" id="muteBtn">🔊</button>
+      <button class="mute-btn" id="pauseBtn">⏸</button>
     </div>
   </div>
   <div class="powerups" id="powerupBar"></div>
@@ -229,15 +236,23 @@
     <div class="mini-speech" id="miniSpeechBubble"><div class="speech-text" id="miniText"></div></div>
   </div>
 
-  <div class="panel" id="overPanel">
+    <div class="panel" id="pausePanel">
+    <div class="title" style="font-size:clamp(20px,7vw,30px);">PAUSED</div>
+    <button class="btn" id="resumeBtn">RESUME</button>
+    <button class="btn" id="pauseMenuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
+  </div>
+
+<div class="panel" id="overPanel">
     <div class="title" style="font-size:clamp(18px,6vw,26px); color:var(--red); text-shadow:3px 3px 0 #000;">GAME OVER</div>
     <button class="btn" id="retryBtn">RUN AGAIN</button>
+    <button class="btn" id="menuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
   </div>
 
   <div class="panel" id="victoryPanel">
     <div class="title" style="color:var(--yellow); text-shadow:3px 3px 0 #000, -1px -1px 0 #b5271f;">THE END</div>
     <div class="subtitle" style="margin-bottom:10px;">The neon dies block by block. One light remains. It's yours.</div>
     <button class="btn" id="victoryRetryBtn">RUN AGAIN</button>
+    <button class="btn" id="victoryMenuBtn" style="margin-top:14px; background:var(--black); border-color:var(--yellow); color:var(--yellow);">MAIN MENU</button>
   </div>
 
   <div class="hint" id="hint">swipe or use arrow keys</div>
@@ -289,8 +304,14 @@
   var overPanel = document.getElementById('overPanel');
   var victoryPanel = document.getElementById('victoryPanel');
   var victoryRetryBtn = document.getElementById('victoryRetryBtn');
+  var victoryMenuBtn = document.getElementById('victoryMenuBtn');
   var retryBtn = document.getElementById('retryBtn');
+  var menuBtn = document.getElementById('menuBtn');
   var muteBtn = document.getElementById('muteBtn');
+  var pauseBtn = document.getElementById('pauseBtn');
+  var pausePanel = document.getElementById('pausePanel');
+  var resumeBtn = document.getElementById('resumeBtn');
+  var pauseMenuBtn = document.getElementById('pauseMenuBtn');
   var hint = document.getElementById('hint');
   var powerupBar = document.getElementById('powerupBar');
   var bossBar = document.getElementById('bossBar');
@@ -301,6 +322,11 @@
   var audioCtx = null;
   var muted = false;
   var beatTimer = null;
+  var paused = false;
+
+  try{
+    if(localStorage.getItem('pixelrush-muted') === 'true'){ muted = true; }
+  }catch(e){}
 
   function ensureAudio(){
     if(!audioCtx){
@@ -553,10 +579,13 @@
     beatTimer = setInterval(scheduleStep, STEP_DUR*1000);
   }
   function stopBeat(){ if(beatTimer){ clearInterval(beatTimer); beatTimer=null; } }
+  function resumeBeat(){ if(!beatTimer){ beatTimer = setInterval(scheduleStep, STEP_DUR*1000); } }
 
+  muteBtn.textContent = muted ? '🔇' : '🔊';
   muteBtn.addEventListener('click', function(){
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
+    try{ localStorage.setItem('pixelrush-muted', String(muted)); }catch(e){}
   });
 
   // ---------- Game constants ----------
@@ -760,6 +789,7 @@
     poles.push({ side:side, z:0, rate:rate });
   }
 
+
   function spawnPowerUp(){
     var lane = randLane();
     var rate = 1/approachTime(difficulty);
@@ -779,6 +809,8 @@
   function startGame(){
     ensureAudio();
     reset();
+    paused = false;
+    pausePanel.classList.remove('show');
     state = 'playing';
     overPanel.classList.remove('show');
     victoryPanel.classList.remove('show');
@@ -791,10 +823,15 @@
     startBeat();
   }
 
+  function vibrate(pattern){
+    try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+  }
+
   function gameOver(){
     state = 'gameover';
     stopBeat();
     playCrash();
+    vibrate([40,60,40,60,120]);
     hud.classList.remove('show');
     powerupBar.classList.remove('show');
     bossBar.classList.remove('show');
@@ -823,6 +860,7 @@
     if(activeEffects.shield>0){
       activeEffects.shield = 0;
       playShieldBreak();
+      vibrate(35);
       burst(x,y,'#3ca7e0',14);
       return;
     }
@@ -832,6 +870,7 @@
     hitFlashAlpha = 0.45;
     updateHeartsHUD();
     playHurt();
+    vibrate(dmg>1 ? [50,40,80] : 70);
     burst(x,y,'#e4423f',dmg>1 ? 18 : 10);
     if(lives<=0) gameOver();
   }
@@ -839,11 +878,11 @@
   // ---------- Opening cutscene ----------
   var introLines = [
     { img:'savior-1.jpg', text:"Ugh... not this again." },
-    { img:'savior-2.jpg', text:"Something feels off about this place." },
-    { img:'savior-3.jpg', text:"Why do the places keep changing? It's confusing." },
-    { img:'savior-2.jpg', text:"I am lost for real..." },
-    { img:'shadow.jpg', text:"Don't worry. You'll find out soon enough." },
-    { img:'savior-3.jpg', text:"Who's there? Who's talking?" },
+    { img:'savior-2.jpg', text:"Something's off about this place." },
+    { img:'savior-3.jpg', text:"Why does this place keep shifting? None of this makes sense." },
+    { img:'savior-2.jpg', text:"I'm actually lost. Like, for real." },
+    { img:'shadow.jpg', text:"Don't worry — you'll find out soon enough." },
+    { img:'savior-3.jpg', text:"Who said that? Who's there?" },
     { img:'shadow.jpg', text:"You need to leave. Or you can stay... and die." },
     { img:'savior-2.jpg', text:"..." }
   ];
@@ -960,18 +999,18 @@
 
   var BOSS_REVEAL_LINES = [
     { img:'shadow.jpg', text:"You're in the wrong place." },
-    { img:'savior-1.jpg', text:"...who is that, talking?" },
-    { img:'savior-2.jpg', text:"........what.....??!", flash:true },
+    { img:'savior-1.jpg', text:"...that voice again?" },
+    { img:'savior-2.jpg', text:"...what— what IS that?!", flash:true },
     { img:'savior-3.jpg', text:"That's impossible... who... are... you...?" },
-    { img:'villain-laugh.jpg', text:"I genuinely warned you at first... now you die!!!" }
+    { img:'villain-laugh.jpg', text:"I warned you once. Now you die." }
   ];
 
   var TRANSFORM_LINES = [
     { img:'villain-laugh.jpg', text:"Not bad, not bad at all. HAHAHAHAHA!!!" },
-    { img:'savior-2.jpg', text:"Wait... listen..." },
+    { img:'savior-2.jpg', text:"Wait— just listen to me—" },
     { img:'villain-rage.jpg', text:"This is for you. BEHOLD!!!" },
     { img:'villain-thirdeye.jpg', text:"ARGHHHHHHHHH!!!!!!!!" },
-    { img:'villain-final.jpg', text:"ARGHHH!!!!!!! THIS IS WHAT WE CALL TRUE POWER, POWER FROM GOD, POWER FROM UNIVERSE!", flash:true },
+    { img:'villain-final.jpg', text:"BEHOLD TRUE POWER — POWER OF THE GODS, POWER OF THE UNIVERSE ITSELF!", flash:true },
     { img:'savior-2.jpg', text:"(Oh god... what now...)" }
   ];
 
@@ -982,11 +1021,32 @@
   ];
 
   var FINAL_DEFEAT_LINES = [
-    { img:'villain-final.jpg', text:"Impossible... h..ow...how... I should've... ki...lll...you....", flash:true }
+    { img:'villain-final.jpg', text:"Impossible... h-how... I should've... ki-lled you...", flash:true }
   ];
 
   retryBtn.addEventListener('click', startGame);
   victoryRetryBtn.addEventListener('click', startGame);
+
+  function goToMenu(){
+    window.location.href = 'index.html';
+  }
+  menuBtn.addEventListener('click', goToMenu);
+  victoryMenuBtn.addEventListener('click', goToMenu);
+  pauseMenuBtn.addEventListener('click', goToMenu);
+
+  function togglePause(){
+    if(state !== 'playing') return;
+    paused = !paused;
+    if(paused){
+      pausePanel.classList.add('show');
+      stopBeat();
+    } else {
+      pausePanel.classList.remove('show');
+      resumeBeat();
+    }
+  }
+  pauseBtn.addEventListener('click', togglePause);
+  resumeBtn.addEventListener('click', togglePause);
 
   // ---------- Update ----------
   function updatePowerupHUD(){
@@ -997,6 +1057,7 @@
 
   function update(dt){
     if(state !== 'playing') return;
+    if(paused) return;
     if(cutsceneActive) return;
 
     distance += speed*dt*140;
@@ -1110,8 +1171,8 @@
         bossWarningLabel = BOSS_TYPES[upcomingIdx].name + ' INCOMING';
         bossTaunt = BOSS_TAUNTS[upcomingIdx];
         showMiniDialogue([
-          { img:'savior-1.jpg', text:"Wait, this time the aura around me feels different..." },
-          { img:'savior-2.jpg', text:"I genuinely feel uneasy..." }
+          { img:'savior-1.jpg', text:"Wait... the air feels different this time." },
+          { img:'savior-2.jpg', text:"I feel it too. Something's coming." }
         ]);
       }
     } else if(bossActive){
@@ -1196,7 +1257,7 @@
                 endingTimer = ENDING_DURATION;
                 showMiniDialogue([
                   { img:'savior-2.jpg', text:"Tell me this is the end..." },
-                  { img:'savior-3.jpg', text:"Is this my imagination, or... could it be anything?", hold:4000 }
+                  { img:'savior-3.jpg', text:"Am I imagining this, or is it finally over?", hold:4000 }
                 ]);
               });
             }
