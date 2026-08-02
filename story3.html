@@ -102,6 +102,64 @@
   .hint{ position:absolute; bottom:max(20px, env(safe-area-inset-bottom)); left:0; right:0; text-align:center;
          font-family:'VT323', monospace; font-size:16px; color:var(--dim); letter-spacing:1px; opacity:0; transition:opacity .4s; }
   .hint.show{ opacity:0.9; }
+
+  .intro-portrait-wrap{
+    width:150px; height:150px; margin-bottom:16px;
+    border:3px solid var(--yellow); box-shadow:4px 4px 0 #000;
+    overflow:hidden; background:#000; flex-shrink:0;
+  }
+  .intro-portrait{ width:100%; height:100%; object-fit:cover; object-position:50% 15%; display:block; }
+
+  .speech-bubble{
+    position:relative; max-width:320px; background:var(--black);
+    border:3px solid var(--ink); box-shadow:4px 4px 0 #000;
+    padding:16px 18px; margin:12px 0 28px;
+  }
+  .speech-bubble:before{
+    content:''; position:absolute; left:50%; top:-11px; transform:translateX(-50%);
+    border-left:10px solid transparent; border-right:10px solid transparent; border-bottom:12px solid var(--ink);
+  }
+  .speech-text{
+    font-family:'VT323', monospace; font-size:20px; line-height:1.3; color:var(--ink);
+  }
+  .tap-continue{
+    font-family:'VT323', monospace; font-size:14px; letter-spacing:2px; color:var(--dim);
+    animation:blink 1.4s steps(1) infinite; text-transform:uppercase;
+  }
+  @keyframes blink{ 0%,49%{ opacity:1; } 50%,100%{ opacity:0.25; } }
+
+  .countdown-overlay{
+    position:fixed; inset:0; z-index:8; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:28px;
+    opacity:0; pointer-events:none; transition:opacity .2s;
+  }
+  .countdown-overlay.show{ opacity:1; }
+  .countdown-number{
+    font-family:'Press Start 2P', monospace; font-size:clamp(48px,16vw,84px); color:var(--yellow);
+    text-shadow:4px 4px 0 #000, -2px -2px 0 #b5271f;
+  }
+
+  .mini-bubble{
+    position:fixed; top:50%; left:50%; z-index:7;
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    width:min(80vw, 320px);
+    opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;
+    transform:translate(-50%,-46%);
+  }
+  .mini-bubble.show{ opacity:1; transform:translate(-50%,-50%); }
+  .mini-portrait{
+    width:120px; height:120px; object-fit:cover; object-position:50% 15%;
+    border:3px solid var(--yellow); box-shadow:4px 4px 0 #000; background:#000; margin-bottom:14px;
+  }
+  .mini-speech{
+    position:relative; background:var(--black); border:3px solid var(--ink); box-shadow:4px 4px 0 #000;
+    padding:14px 16px; max-width:100%;
+  }
+  .mini-speech .speech-text{ font-size:19px; }
+  .mini-speech:before{
+    content:''; position:absolute; left:50%; top:-11px; transform:translateX(-50%);
+    border-left:9px solid transparent; border-right:9px solid transparent; border-bottom:11px solid var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -126,16 +184,38 @@
     <div class="boss-track"><div class="boss-fill" id="bossFill"></div></div>
   </div>
 
-  <div class="panel show" id="startPanel">
-    <div class="title">PIXEL<br>RUSH</div>
-    <div class="subtitle">STORY 3 &middot; OVERLORD</div>
-    <div class="prologue">Deep in the grid, past every checkpoint, OVERLORD runs the show. It already knows where you're going.</div>
-    <div class="controls-row">
+  <div class="panel show" id="introPanel">
+    <div class="intro-portrait-wrap">
+      <img class="intro-portrait" id="introPortrait" src="savior-1.jpg" alt="Savior">
+    </div>
+    <div class="speech-bubble">
+      <div class="speech-text" id="introText">Ugh... not this again.</div>
+    </div>
+    <div class="tap-continue">TAP TO CONTINUE</div>
+  </div>
+
+  <div class="panel" id="cutscenePanel">
+    <div class="intro-portrait-wrap">
+      <img class="intro-portrait" id="cutscenePortrait" src="savior-1.jpg" alt="">
+    </div>
+    <div class="speech-bubble">
+      <div class="speech-text" id="cutsceneText"></div>
+    </div>
+    <div class="tap-continue">TAP TO CONTINUE</div>
+  </div>
+
+  <div class="countdown-overlay" id="countdownOverlay">
+    <div class="countdown-number" id="countdownNumber">3</div>
+    <div class="controls-row" id="countdownControls">
       <div class="control-chip"><div class="glyph">⇆</div>SWITCH LANE</div>
       <div class="control-chip"><div class="glyph">⇡</div>JUMP</div>
       <div class="control-chip"><div class="glyph">⇣</div>SLIDE</div>
     </div>
-    <button class="btn" id="startBtn">TAP TO RUN</button>
+  </div>
+
+  <div class="mini-bubble" id="miniBubble">
+    <img class="mini-portrait" id="miniPortrait" src="savior-1.jpg" alt="Savior">
+    <div class="mini-speech"><div class="speech-text" id="miniText"></div></div>
   </div>
 
   <div class="panel" id="overPanel">
@@ -179,11 +259,20 @@
   // ---------- DOM refs ----------
   var hud = document.getElementById('hud');
   var heartsRow = document.getElementById('heartsRow');
-  var startPanel = document.getElementById('startPanel');
+  var introPanel = document.getElementById('introPanel');
+  var introPortrait = document.getElementById('introPortrait');
+  var introText = document.getElementById('introText');
+  var cutscenePanel = document.getElementById('cutscenePanel');
+  var cutscenePortrait = document.getElementById('cutscenePortrait');
+  var cutsceneText = document.getElementById('cutsceneText');
+  var countdownOverlay = document.getElementById('countdownOverlay');
+  var countdownNumber = document.getElementById('countdownNumber');
+  var miniBubble = document.getElementById('miniBubble');
+  var miniPortrait = document.getElementById('miniPortrait');
+  var miniText = document.getElementById('miniText');
   var overPanel = document.getElementById('overPanel');
   var victoryPanel = document.getElementById('victoryPanel');
   var victoryRetryBtn = document.getElementById('victoryRetryBtn');
-  var startBtn = document.getElementById('startBtn');
   var retryBtn = document.getElementById('retryBtn');
   var muteBtn = document.getElementById('muteBtn');
   var hint = document.getElementById('hint');
@@ -455,6 +544,7 @@
 
   var BOSS2_HEALTH = 10;
   var bossForm2, bossAttackVariant, bossZoom, bossTransformFlash;
+  var cutsceneActive = false;
   var bossImg1 = new Image(); bossImg1.src = 'overlord-1.png';
   var bossImg2 = new Image(); bossImg2.src = 'overlord-2.png';
 
@@ -480,6 +570,7 @@
     nightFactor = 0; flashTimer = 2+Math.random()*2; flashAlpha = 0;
     endingActive = false; endingTimer = 0;
     bossForm2 = false; bossAttackVariant = 'lunge'; bossZoom = 0; bossTransformFlash = 0;
+    cutsceneActive = false;
   }
   reset();
   cloudT = 0;
@@ -632,7 +723,6 @@
     ensureAudio();
     reset();
     state = 'playing';
-    startPanel.classList.remove('show');
     overPanel.classList.remove('show');
     victoryPanel.classList.remove('show');
     hud.classList.add('show');
@@ -689,7 +779,128 @@
     if(lives<=0) gameOver();
   }
 
-  startBtn.addEventListener('click', startGame);
+  // ---------- Opening cutscene ----------
+  var introLines = [
+    { img:'savior-1.jpg', text:"Ugh... not this again." },
+    { img:'savior-2.jpg', text:"Something feels off about this place." },
+    { img:'savior-3.jpg', text:"Why do the places keep changing? It's confusing." },
+    { img:'savior-2.jpg', text:"I am lost for real..." },
+    { img:'shadow.jpg', text:"Don't worry. You'll find out soon enough." },
+    { img:'savior-3.jpg', text:"Who's there? Who's talking?" },
+    { img:'shadow.jpg', text:"You need to leave. Or you can stay... and die." },
+    { img:'savior-2.jpg', text:"..." }
+  ];
+  var introIndex = 0;
+
+  function showIntroLine(i){
+    introPortrait.src = introLines[i].img;
+    introText.textContent = introLines[i].text;
+  }
+  showIntroLine(0);
+
+  function advanceIntro(){
+    ensureAudio();
+    introIndex++;
+    if(introIndex < introLines.length){
+      showIntroLine(introIndex);
+    } else {
+      introPanel.classList.remove('show');
+      runCountdown();
+    }
+  }
+  introPanel.addEventListener('click', advanceIntro);
+
+  function runCountdown(){
+    countdownOverlay.classList.add('show');
+    var n = 3;
+    countdownNumber.textContent = n;
+    var iv = setInterval(function(){
+      n--;
+      if(n > 0){
+        countdownNumber.textContent = n;
+      } else {
+        clearInterval(iv);
+        countdownOverlay.classList.remove('show');
+        startGame();
+      }
+    }, 700);
+  }
+
+  // ---------- Mini narrator bubble (boss warning / ending, non-blocking) ----------
+  var miniBubbleTimer = null;
+  function showMiniDialogue(lines){
+    clearTimeout(miniBubbleTimer);
+    var i = 0;
+    function showNext(){
+      if(i >= lines.length){
+        miniBubble.classList.remove('show');
+        return;
+      }
+      miniPortrait.src = lines[i].img;
+      miniText.textContent = lines[i].text;
+      miniBubble.classList.add('show');
+      i++;
+      miniBubbleTimer = setTimeout(showNext, lines[i-1].hold || 2200);
+    }
+    showNext();
+  }
+
+  // ---------- Story cutscenes (pause gameplay, tap to advance) ----------
+  var cutsceneLines = [];
+  var cutsceneIndex = 0;
+  var cutsceneOnComplete = null;
+
+  function showCutsceneLine(i){
+    var line = cutsceneLines[i];
+    if(line.flash) flashAlpha = 1.0;
+    cutscenePortrait.src = line.img;
+    cutsceneText.textContent = line.text;
+  }
+
+  function startCutscene(lines, onComplete){
+    cutsceneLines = lines;
+    cutsceneIndex = 0;
+    cutsceneOnComplete = onComplete;
+    cutsceneActive = true;
+    showCutsceneLine(0);
+    cutscenePanel.classList.add('show');
+  }
+
+  function advanceCutscene(){
+    cutsceneIndex++;
+    if(cutsceneIndex < cutsceneLines.length){
+      showCutsceneLine(cutsceneIndex);
+    } else {
+      cutscenePanel.classList.remove('show');
+      cutsceneActive = false;
+      var cb = cutsceneOnComplete;
+      cutsceneOnComplete = null;
+      if(cb) cb();
+    }
+  }
+  cutscenePanel.addEventListener('click', advanceCutscene);
+
+  var BOSS_REVEAL_LINES = [
+    { img:'shadow.jpg', text:"You're in the wrong place." },
+    { img:'savior-1.jpg', text:"...who is that, talking?" },
+    { img:'savior-2.jpg', text:"........what.....??!", flash:true },
+    { img:'savior-3.jpg', text:"That's impossible... who... are... you...?" },
+    { img:'villain-laugh.jpg', text:"I genuinely warned you at first... now you die!!!" }
+  ];
+
+  var TRANSFORM_LINES = [
+    { img:'villain-laugh.jpg', text:"Not bad, not bad at all. HAHAHAHAHA!!!" },
+    { img:'savior-2.jpg', text:"Wait... listen..." },
+    { img:'villain-rage.jpg', text:"This is for you. BEHOLD!!!" },
+    { img:'villain-thirdeye.jpg', text:"ARGHHHHHHHHH!!!!!!!!" },
+    { img:'villain-final.jpg', text:"ARGHHH!!!!!!! THIS IS WHAT WE CALL TRUE POWER, POWER FROM GOD, POWER FROM UNIVERSE!", flash:true },
+    { img:'savior-2.jpg', text:"(Oh god... what now...)" }
+  ];
+
+  var FINAL_DEFEAT_LINES = [
+    { img:'villain-final.jpg', text:"Impossible... h..ow...how... I should've... ki...lll...you....", flash:true }
+  ];
+
   retryBtn.addEventListener('click', startGame);
   victoryRetryBtn.addEventListener('click', startGame);
 
@@ -702,6 +913,7 @@
 
   function update(dt){
     if(state !== 'playing') return;
+    if(cutsceneActive) return;
 
     distance += speed*dt*140;
     difficulty = Math.min(1, distance/4200);
@@ -781,22 +993,24 @@
 
     if(!bossActive && !finalBossDefeated){
       if(distance >= nextBossDistance){
-        bossActive = true;
-        bossEncounterCount++;
-        bossTypeIndex = STORY_BOSS_INDEX;
-        var startBt = BOSS_TYPES[bossTypeIndex];
-        bossMaxHealth = BOSS_HEALTH[bossTypeIndex];
-        bossHealth = bossMaxHealth;
         obstacles = []; coins = []; powerUps = [];
-        bossWarningTimer = 0; bossWarningShown = false;
-        bossTargetLanes = pickTargetLanes(startBt.beamCount);
-        bossHoverTarget = avgLane(bossTargetLanes);
-        bossLaneVisual = player.lane;
-        bossPhase = 'moving'; bossPhaseTimer = 0;
-        bossLabel.textContent = startBt.name;
-        bossBar.classList.add('show');
-        bossFill.style.width = '100%';
-        playBossStart();
+        startCutscene(BOSS_REVEAL_LINES, function(){
+          bossActive = true;
+          bossEncounterCount++;
+          bossTypeIndex = STORY_BOSS_INDEX;
+          var startBt = BOSS_TYPES[bossTypeIndex];
+          bossMaxHealth = BOSS_HEALTH[bossTypeIndex];
+          bossHealth = bossMaxHealth;
+          bossWarningTimer = 0; bossWarningShown = false;
+          bossTargetLanes = pickTargetLanes(startBt.beamCount);
+          bossHoverTarget = avgLane(bossTargetLanes);
+          bossLaneVisual = player.lane;
+          bossPhase = 'moving'; bossPhaseTimer = 0;
+          bossLabel.textContent = startBt.name;
+          bossBar.classList.add('show');
+          bossFill.style.width = '100%';
+          playBossStart();
+        });
       } else if(!bossWarningShown && nextBossDistance - distance < 650){
         bossWarningShown = true;
         bossWarningTimer = 2.6;
@@ -805,6 +1019,10 @@
         var upcomingIdx = STORY_BOSS_INDEX;
         bossWarningLabel = BOSS_TYPES[upcomingIdx].name + ' INCOMING';
         bossTaunt = BOSS_TAUNTS[upcomingIdx];
+        showMiniDialogue([
+          { img:'savior-1.jpg', text:"Wait, this time the aura around me feels different..." },
+          { img:'savior-2.jpg', text:"I genuinely feel uneasy..." }
+        ]);
       }
     } else if(bossActive){
       var bt = BOSS_TYPES[bossTypeIndex];
@@ -845,27 +1063,36 @@
           bossHealth--;
           bossFill.style.width = Math.max(0, (bossHealth/bossMaxHealth*100)) + '%';
           if(bossHealth <= 0){
+            obstacles = []; coins = []; powerUps = [];
             if(!bossForm2){
-              bossForm2 = true;
-              bossHealth = BOSS2_HEALTH;
-              bossMaxHealth = BOSS2_HEALTH;
-              bossFill.style.width = '100%';
-              bossLabel.textContent = 'TRUE OVERLORD';
-              bossTransformFlash = 1.8;
-              playTransform();
-              bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
-              bossTargetLanes = pickTargetLanes(bt.beamCount);
-              bossHoverTarget = avgLane(bossTargetLanes);
-              bossPhase = 'moving';
+              startCutscene(TRANSFORM_LINES, function(){
+                bossForm2 = true;
+                bossHealth = BOSS2_HEALTH;
+                bossMaxHealth = BOSS2_HEALTH;
+                bossFill.style.width = '100%';
+                bossLabel.textContent = 'TRUE OVERLORD';
+                bossTransformFlash = 1.8;
+                playTransform();
+                bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
+                bossTargetLanes = pickTargetLanes(bt.beamCount);
+                bossHoverTarget = avgLane(bossTargetLanes);
+                bossPhase = 'moving';
+              });
             } else {
-              bossActive = false;
-              bossDefeatFlashTimer = 1.6;
-              bossBar.classList.remove('show');
-              playBossDefeat();
-              finalBossDefeated = true;
-              obstacles = []; coins = []; powerUps = [];
-              endingActive = true;
-              endingTimer = ENDING_DURATION;
+              startCutscene(FINAL_DEFEAT_LINES, function(){
+                bossActive = false;
+                bossDefeatFlashTimer = 1.6;
+                bossBar.classList.remove('show');
+                playBossDefeat();
+                finalBossDefeated = true;
+                obstacles = []; coins = []; powerUps = [];
+                endingActive = true;
+                endingTimer = ENDING_DURATION;
+                showMiniDialogue([
+                  { img:'savior-2.jpg', text:"Tell me this is the end..." },
+                  { img:'savior-3.jpg', text:"Is this my imagination, or... could it be anything?", hold:4000 }
+                ]);
+              });
             }
           } else {
             if(bossForm2) bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
