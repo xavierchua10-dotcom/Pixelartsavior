@@ -76,6 +76,8 @@
     text-align:center; padding:24px; pointer-events:none; opacity:0; transition:opacity .4s;
   }
   .panel.show{ opacity:1; pointer-events:auto; }
+  .panel.side-left{ align-items:flex-start; text-align:left; }
+  .panel.side-right{ align-items:flex-end; text-align:right; }
   .title{
     font-family:'Press Start 2P', monospace; font-size:clamp(20px,7vw,34px); line-height:1.5;
     color:var(--yellow); margin:0 0 14px; text-shadow:3px 3px 0 #000, -1px -1px 0 #b5271f;
@@ -111,7 +113,7 @@
   .intro-portrait{ width:100%; height:100%; object-fit:cover; object-position:50% 15%; display:block; }
 
   .speech-bubble{
-    position:relative; max-width:320px; background:var(--black);
+    position:relative; max-width:270px; background:var(--black);
     border:3px solid var(--ink); box-shadow:4px 4px 0 #000;
     padding:16px 18px; margin:12px 0 28px;
   }
@@ -140,13 +142,15 @@
   }
 
   .mini-bubble{
-    position:fixed; top:50%; left:50%; z-index:7;
+    position:fixed; top:50%; z-index:7;
     display:flex; flex-direction:column; align-items:center; text-align:center;
-    width:min(80vw, 320px);
+    width:min(68vw, 260px);
     opacity:0; pointer-events:none; transition:opacity .3s, transform .3s;
-    transform:translate(-50%,-46%);
+    transform:translateY(-46%);
   }
-  .mini-bubble.show{ opacity:1; transform:translate(-50%,-50%); }
+  .mini-bubble.show{ opacity:1; transform:translateY(-50%); }
+  .mini-bubble.side-left{ left:14px; }
+  .mini-bubble.side-right{ right:14px; }
   .mini-portrait{
     width:120px; height:120px; object-fit:cover; object-position:50% 15%;
     border:3px solid var(--yellow); box-shadow:4px 4px 0 #000; background:#000; margin-bottom:14px;
@@ -160,6 +164,13 @@
     content:''; position:absolute; left:50%; top:-11px; transform:translateX(-50%);
     border-left:9px solid transparent; border-right:9px solid transparent; border-bottom:11px solid var(--ink);
   }
+
+  .intro-portrait-wrap.villain-frame{ border-color:var(--red); border-width:5px; box-shadow:5px 5px 0 #000; }
+  .speech-bubble.villain-frame{ border-color:var(--red); border-width:4px; }
+  .speech-bubble.villain-frame:before{ border-bottom-color:var(--red); }
+  .mini-portrait.villain-frame{ border-color:var(--red); border-width:4px; }
+  .mini-speech.villain-frame{ border-color:var(--red); border-width:4px; }
+  .mini-speech.villain-frame:before{ border-bottom-color:var(--red); }
 </style>
 </head>
 <body>
@@ -185,20 +196,20 @@
   </div>
 
   <div class="panel show" id="introPanel">
-    <div class="intro-portrait-wrap">
+    <div class="intro-portrait-wrap" id="introPortraitWrap">
       <img class="intro-portrait" id="introPortrait" src="savior-1.jpg" alt="Savior">
     </div>
-    <div class="speech-bubble">
+    <div class="speech-bubble" id="introSpeechBubble">
       <div class="speech-text" id="introText">Ugh... not this again.</div>
     </div>
     <div class="tap-continue">TAP TO CONTINUE</div>
   </div>
 
   <div class="panel" id="cutscenePanel">
-    <div class="intro-portrait-wrap">
+    <div class="intro-portrait-wrap" id="cutscenePortraitWrap">
       <img class="intro-portrait" id="cutscenePortrait" src="savior-1.jpg" alt="">
     </div>
-    <div class="speech-bubble">
+    <div class="speech-bubble" id="cutsceneSpeechBubble">
       <div class="speech-text" id="cutsceneText"></div>
     </div>
     <div class="tap-continue">TAP TO CONTINUE</div>
@@ -215,7 +226,7 @@
 
   <div class="mini-bubble" id="miniBubble">
     <img class="mini-portrait" id="miniPortrait" src="savior-1.jpg" alt="Savior">
-    <div class="mini-speech"><div class="speech-text" id="miniText"></div></div>
+    <div class="mini-speech" id="miniSpeechBubble"><div class="speech-text" id="miniText"></div></div>
   </div>
 
   <div class="panel" id="overPanel">
@@ -261,14 +272,19 @@
   var heartsRow = document.getElementById('heartsRow');
   var introPanel = document.getElementById('introPanel');
   var introPortrait = document.getElementById('introPortrait');
+  var introPortraitWrap = document.getElementById('introPortraitWrap');
+  var introSpeechBubble = document.getElementById('introSpeechBubble');
   var introText = document.getElementById('introText');
   var cutscenePanel = document.getElementById('cutscenePanel');
   var cutscenePortrait = document.getElementById('cutscenePortrait');
+  var cutscenePortraitWrap = document.getElementById('cutscenePortraitWrap');
+  var cutsceneSpeechBubble = document.getElementById('cutsceneSpeechBubble');
   var cutsceneText = document.getElementById('cutsceneText');
   var countdownOverlay = document.getElementById('countdownOverlay');
   var countdownNumber = document.getElementById('countdownNumber');
   var miniBubble = document.getElementById('miniBubble');
   var miniPortrait = document.getElementById('miniPortrait');
+  var miniSpeechBubble = document.getElementById('miniSpeechBubble');
   var miniText = document.getElementById('miniText');
   var overPanel = document.getElementById('overPanel');
   var victoryPanel = document.getElementById('victoryPanel');
@@ -575,7 +591,7 @@
   var bossWarningTimer, bossWarningShown, bossWarningLabel, bossTaunt, bossDefeatFlashTimer, bossEncounterCount, bossTypeIndex;
   var bossSirenTimer;
   var bossLaneVisual, bossHoverTarget, bossPhase, bossPhaseTimer, bossTargetLanes, bossBeamLanes, bossBeamColor;
-  var nightFactor, flashTimer, flashAlpha;
+  var nightFactor, flashTimer, flashAlpha, redFactor;
   var endingActive, endingTimer;
 
   var BOSS2_HEALTH = 10;
@@ -606,7 +622,7 @@
     bossDefeatFlashTimer = 0; bossEncounterCount = 0; bossTypeIndex = 0;
     bossLaneVisual = 0; bossHoverTarget = 0; bossPhase = 'moving'; bossPhaseTimer = 0;
     bossTargetLanes = [0]; bossBeamLanes = []; bossBeamColor = '#ff2fd6';
-    nightFactor = 0; flashTimer = 2+Math.random()*2; flashAlpha = 0;
+    nightFactor = 0; flashTimer = 2+Math.random()*2; flashAlpha = 0; redFactor = 0;
     endingActive = false; endingTimer = 0;
     bossForm2 = false; bossAttackVariant = 'lunge'; bossZoom = 0; bossTransformFlash = 0;
     bossRageMode = false;
@@ -833,9 +849,20 @@
   ];
   var introIndex = 0;
 
+  var VILLAIN_IMAGES = ['shadow.jpg','villain-laugh.jpg','villain-rage.jpg','villain-thirdeye.jpg','villain-final.jpg'];
+  function isVillainImg(src){
+    return VILLAIN_IMAGES.indexOf(src) !== -1;
+  }
+
   function showIntroLine(i){
-    introPortrait.src = introLines[i].img;
-    introText.textContent = introLines[i].text;
+    var line = introLines[i];
+    introPortrait.src = line.img;
+    introText.textContent = line.text;
+    var villain = isVillainImg(line.img);
+    introPortraitWrap.classList.toggle('villain-frame', villain);
+    introSpeechBubble.classList.toggle('villain-frame', villain);
+    introPanel.classList.toggle('side-left', !villain);
+    introPanel.classList.toggle('side-right', villain);
   }
   showIntroLine(0);
 
@@ -879,6 +906,11 @@
       }
       miniPortrait.src = lines[i].img;
       miniText.textContent = lines[i].text;
+      var miniVillain = isVillainImg(lines[i].img);
+      miniPortrait.classList.toggle('villain-frame', miniVillain);
+      miniSpeechBubble.classList.toggle('villain-frame', miniVillain);
+      miniBubble.classList.toggle('side-left', !miniVillain);
+      miniBubble.classList.toggle('side-right', miniVillain);
       miniBubble.classList.add('show');
       i++;
       miniBubbleTimer = setTimeout(showNext, lines[i-1].hold || 2200);
@@ -896,6 +928,11 @@
     if(line.flash) cutsceneFlashAlpha = 1.0;
     cutscenePortrait.src = line.img;
     cutsceneText.textContent = line.text;
+    var villain = isVillainImg(line.img);
+    cutscenePortraitWrap.classList.toggle('villain-frame', villain);
+    cutsceneSpeechBubble.classList.toggle('villain-frame', villain);
+    cutscenePanel.classList.toggle('side-left', !villain);
+    cutscenePanel.classList.toggle('side-right', villain);
   }
 
   function startCutscene(lines, onComplete){
@@ -999,6 +1036,11 @@
     nightFactor += (nightTarget - nightFactor) * Math.min(1, dt*1.4);
     if(nightFactor<0.001) nightFactor=0;
     if(nightFactor>0.999) nightFactor=1;
+
+    var redTarget = bossForm2 ? 1 : 0;
+    redFactor += (redTarget - redFactor) * Math.min(1, dt*1.2);
+    if(redFactor<0.001) redFactor=0;
+    if(redFactor>0.999) redFactor=1;
 
     var wantedMusicMode = bossActive ? 'boss' : 'normal';
     if(wantedMusicMode !== musicMode){
@@ -1254,6 +1296,13 @@
     var bl = Math.round(a[2]+(b[2]-a[2])*t);
     return 'rgb('+r+','+g+','+bl+')';
   }
+  function lerpColorAlpha(hexA,hexB,t,alpha){
+    var a = hexToRgb(hexA), b = hexToRgb(hexB);
+    var r = Math.round(a[0]+(b[0]-a[0])*t);
+    var g = Math.round(a[1]+(b[1]-a[1])*t);
+    var bl = Math.round(a[2]+(b[2]-a[2])*t);
+    return 'rgba('+r+','+g+','+bl+','+alpha+')';
+  }
 
   function shadeColor(hex, factor){
     var rgb = hexToRgb(hex);
@@ -1316,9 +1365,9 @@
           ctx.closePath();
           ctx.fill();
         } else {
-          ctx.fillStyle = '#3a1060';
+          ctx.fillStyle = redFactor>0.01 ? lerpColor('#3a1060','#601010',redFactor) : '#3a1060';
           ctx.fillRect(Math.round(bx), Math.round(by), Math.round(bw), Math.round(bh)+2);
-          ctx.fillStyle = '#ff6ae0';
+          ctx.fillStyle = redFactor>0.01 ? lerpColor('#ff6ae0','#ff3030',redFactor) : '#ff6ae0';
           for(var wi=0; wi<b.windows.length; wi++){
             var w = b.windows[wi];
             var wx = bx + w.cx*bw, wy = by + w.cy*bh;
@@ -1335,10 +1384,12 @@
       ? ['#4a90d9','#79b8e8','#a8d4c8','#dcefd0']
       : ['#2a0f4a','#5a1a8a','#9a3ad0','#e896ff'];
     var nightBands = ['#05040d','#0d0a1f','#161233','#241a3a'];
+    var redNightBands = ['#0d0303','#1f0808','#330f0f','#451515'];
     var stops = [0.0, 0.34, 0.62, 0.85];
     var skyGrad = ctx.createLinearGradient(0, 0, 0, hy);
     for(var bi=0; bi<stops.length; bi++){
-      skyGrad.addColorStop(stops[bi], lerpColor(dayBands[bi], nightBands[bi], nightFactor));
+      var nightColor = redFactor>0.01 ? lerpColor(nightBands[bi], redNightBands[bi], redFactor) : nightBands[bi];
+      skyGrad.addColorStop(stops[bi], lerpColor(dayBands[bi], nightColor, nightFactor));
     }
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, iW, Math.ceil(hy)+1);
@@ -1355,6 +1406,7 @@
     }
 
     var sunColor = lerpColor('#ff6ad5', '#c8a0ff', nightFactor);
+    if(redFactor>0.01) sunColor = lerpColor(sunColor, '#ff2020', redFactor);
     drawPixelSun(iW*0.16, hy*0.24, iH*0.05, sunColor);
     var cloudAlpha = 0.85*(1-nightFactor*0.7);
     drawCloud(((cloudT*6) % (iW+50))-25, hy*0.16, iH*0.03, cloudAlpha);
@@ -1373,12 +1425,12 @@
     ctx.lineTo(iW/2+botH, gy);
     ctx.lineTo(iW/2-botH, gy);
     ctx.closePath();
-    ctx.fillStyle = isForest ? '#5a4a34' : '#2a1045';
+    ctx.fillStyle = isForest ? '#5a4a34' : (redFactor>0.01 ? lerpColor('#2a1045','#450f0f',redFactor) : '#2a1045');
     ctx.fill();
 
     ctx.save();
     ctx.clip();
-    ctx.strokeStyle = isForest ? '#463824' : '#4a1a6a';
+    ctx.strokeStyle = isForest ? '#463824' : (redFactor>0.01 ? lerpColor('#4a1a6a','#6a1a1a',redFactor) : '#4a1a6a');
     var dz = 0.16, off = (distance*0.03) % dz;
     for(var z=off; z<1.02; z+=dz){
       var yy = Math.round(yAt(z));
@@ -1391,7 +1443,7 @@
     }
     ctx.restore();
 
-    ctx.strokeStyle = isForest ? '#e8dcc0' : '#ff6ae0';
+    ctx.strokeStyle = isForest ? '#e8dcc0' : (redFactor>0.01 ? lerpColor('#ff6ae0','#ff3030',redFactor) : '#ff6ae0');
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(iW/2-topH,hy); ctx.lineTo(iW/2-botH,gy);
@@ -1400,7 +1452,7 @@
 
     ctx.setLineDash([6,5]);
     ctx.lineDashOffset = -(distance*0.9) % 11;
-    ctx.strokeStyle = isForest ? 'rgba(232,220,192,0.6)' : 'rgba(255,138,232,0.6)';
+    ctx.strokeStyle = isForest ? 'rgba(232,220,192,0.6)' : lerpColorAlpha('#ff8ae8','#ff5050',redFactor,0.6);
     ctx.lineWidth = 1.5;
     [-0.5,0.5].forEach(function(l){
       ctx.beginPath();
@@ -1415,14 +1467,14 @@
     var y = yAt(p.z), s = scaleAt(p.z);
     var edgeX = p.side<0 ? (iW/2 - halfWidthAt(p.z)) : (iW/2 + halfWidthAt(p.z));
     var h = iH*0.20*s;
-    ctx.strokeStyle = '#6a3a9a';
+    ctx.strokeStyle = redFactor>0.01 ? lerpColor('#6a3a9a','#9a3a3a',redFactor) : '#6a3a9a';
     ctx.lineWidth = Math.max(1, 2*s);
     ctx.beginPath();
     ctx.moveTo(Math.round(edgeX), Math.round(y));
     ctx.lineTo(Math.round(edgeX), Math.round(y-h));
     ctx.stroke();
     var lampSize = Math.max(2, 4*s);
-    ctx.fillStyle = '#ff6ae0';
+    ctx.fillStyle = redFactor>0.01 ? lerpColor('#ff6ae0','#ff3030',redFactor) : '#ff6ae0';
     ctx.fillRect(Math.round(edgeX-lampSize/2), Math.round(y-h-lampSize/2), Math.round(lampSize), Math.round(lampSize));
   }
 
