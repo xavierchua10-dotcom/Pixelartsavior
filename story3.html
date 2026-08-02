@@ -390,6 +390,11 @@
     noiseHit(0.22,0.32,0,500);
     tone(180,0.18,'sawtooth',0.26,0,40);
   }
+  function playGrenadeBlast(){
+    noiseHit(0.4,0.4,0,350);
+    tone(70,0.35,'sawtooth',0.32,0,25);
+    tone(140,0.1,'square',0.18,0.02,60);
+  }
   function playPlasmaFire(){
     tone(1200,0.14,'sawtooth',0.22,0,300);
     noiseHit(0.1,0.2,0,3000);
@@ -619,7 +624,7 @@
   var bossActive, bossHealth, bossMaxHealth, nextBossDistance, finalBossDefeated;
   var bossWarningTimer, bossWarningShown, bossWarningLabel, bossTaunt, bossDefeatFlashTimer, bossEncounterCount, bossTypeIndex;
   var bossSirenTimer;
-  var bossLaneVisual, bossHoverTarget, bossPhase, bossPhaseTimer, bossTargetLanes, bossBeamLanes, bossBeamColor;
+  var bossLaneVisual, bossHoverTarget, bossPhase, bossPhaseTimer, bossPhaseDuration, bossTargetLanes, bossBeamLanes, bossBeamColor;
   var nightFactor, flashTimer, flashAlpha, redFactor;
   var endingActive, endingTimer;
 
@@ -649,7 +654,7 @@
     bossTaunt = '';
     bossSirenTimer = 0;
     bossDefeatFlashTimer = 0; bossEncounterCount = 0; bossTypeIndex = 0;
-    bossLaneVisual = 0; bossHoverTarget = 0; bossPhase = 'moving'; bossPhaseTimer = 0;
+    bossLaneVisual = 0; bossHoverTarget = 0; bossPhase = 'moving'; bossPhaseTimer = 0; bossPhaseDuration = 1;
     bossTargetLanes = [0]; bossBeamLanes = []; bossBeamColor = '#ff2fd6';
     nightFactor = 0; flashTimer = 2+Math.random()*2; flashAlpha = 0; redFactor = 0;
     endingActive = false; endingTimer = 0;
@@ -965,6 +970,7 @@
   function showCutsceneLine(i){
     var line = cutsceneLines[i];
     if(line.flash) cutsceneFlashAlpha = 1.0;
+    if(line.onShow) line.onShow();
     cutscenePortrait.src = line.img;
     cutsceneText.textContent = line.text;
     var villain = isVillainImg(line.img);
@@ -1010,14 +1016,34 @@
     { img:'savior-2.jpg', text:"Wait— just listen to me—" },
     { img:'villain-rage.jpg', text:"This is for you. BEHOLD!!!" },
     { img:'villain-thirdeye.jpg', text:"ARGHHHHHHHHH!!!!!!!!" },
-    { img:'villain-final.jpg', text:"BEHOLD TRUE POWER — POWER OF THE GODS, POWER OF THE UNIVERSE ITSELF!", flash:true },
+    { img:'villain-final.jpg', text:"BEHOLD TRUE POWER — POWER OF THE GODS, POWER OF THE UNIVERSE ITSELF!", flash:true,
+      onShow:function(){
+        bossForm2 = true;
+        bossHealth = BOSS2_HEALTH;
+        bossMaxHealth = BOSS2_HEALTH;
+        bossFill.style.width = '100%';
+        bossLabel.textContent = 'TRUE OVERLORD';
+        bossTransformFlash = 1.8;
+        playTransform();
+      }
+    },
     { img:'savior-2.jpg', text:"(Oh god... what now...)" }
   ];
 
   var RAGE_LINES = [
     { img:'villain-final.jpg', text:"You think that was my limit?! I'm just getting STARTED!" },
     { img:'savior-3.jpg', text:"...he's not done. Of course he's not done." },
-    { img:'villain-final.jpg', text:"FEEL MY TRUE FURY!!!", flash:true }
+    { img:'villain-final.jpg', text:"FEEL MY TRUE FURY!!!", flash:true,
+      onShow:function(){
+        bossRageMode = true;
+        bossHealth = BOSS3_HEALTH;
+        bossMaxHealth = BOSS3_HEALTH;
+        bossFill.style.width = '100%';
+        bossLabel.textContent = 'OVERLORD: ENRAGED';
+        bossTransformFlash = 1.4;
+        playRage();
+      }
+    }
   ];
 
   var FINAL_DEFEAT_LINES = [
@@ -1188,16 +1214,21 @@
           bossPhase = 'charging';
           var rageMult1 = bossRageMode ? RAGE_SPEED_MULT : 1;
           bossPhaseTimer = (bt.chargeMin + Math.random()*(bt.chargeMax-bt.chargeMin)) * rageMult1;
+          bossPhaseDuration = bossPhaseTimer;
         }
       } else if(bossPhase === 'charging'){
         bossPhaseTimer -= dt;
         if(bossPhaseTimer <= 0){
           bossPhase = 'firing';
-          bossPhaseTimer = 0.16;
-          bossBeamLanes = bossTargetLanes.slice();
           var isEyeLaser = bossForm2 && bossAttackVariant==='eyelaser';
+          var isGrenade = !bossForm2;
+          bossPhaseTimer = isGrenade ? 0.35 : 0.16;
+          bossPhaseDuration = bossPhaseTimer;
+          bossBeamLanes = bossTargetLanes.slice();
           bossBeamColor = isEyeLaser ? '#ff2020' : (Math.random()<0.5 ? bt.colorA : bt.colorB);
-          if(bossForm2 && bossAttackVariant==='lunge'){ playLunge(); } else { playPlasmaFire(); }
+          if(isGrenade){ playGrenadeBlast(); }
+          else if(bossForm2 && bossAttackVariant==='lunge'){ playLunge(); }
+          else { playPlasmaFire(); }
           if(bossBeamLanes.indexOf(player.lane) !== -1){
             var bsx = laneCenterX(player.visualLane,1), bsy = groundY()-iH*0.1;
             takeHit(bsx, bsy, isEyeLaser ? 2 : 1);
@@ -1219,13 +1250,6 @@
             obstacles = []; coins = []; powerUps = [];
             if(!bossForm2){
               startCutscene(TRANSFORM_LINES, function(){
-                bossForm2 = true;
-                bossHealth = BOSS2_HEALTH;
-                bossMaxHealth = BOSS2_HEALTH;
-                bossFill.style.width = '100%';
-                bossLabel.textContent = 'TRUE OVERLORD';
-                bossTransformFlash = 1.8;
-                playTransform();
                 bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
                 bossTargetLanes = pickTargetLanes(bt.beamCount);
                 bossHoverTarget = avgLane(bossTargetLanes);
@@ -1233,13 +1257,6 @@
               });
             } else if(!bossRageMode){
               startCutscene(RAGE_LINES, function(){
-                bossRageMode = true;
-                bossHealth = BOSS3_HEALTH;
-                bossMaxHealth = BOSS3_HEALTH;
-                bossFill.style.width = '100%';
-                bossLabel.textContent = 'OVERLORD: ENRAGED';
-                bossTransformFlash = 1.4;
-                playRage();
                 bossAttackVariant = Math.random()<0.5 ? 'lunge' : 'eyelaser';
                 bossTargetLanes = pickTargetLanes(bt.beamCount);
                 bossHoverTarget = avgLane(bossTargetLanes);
@@ -1762,7 +1779,72 @@
     }
   }
 
+  function drawFlameColumn(x, topY, botY, alpha, seed){
+    var segments = 9;
+    var h = botY - topY;
+    var t = performance.now()/130 + seed;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    for(var i=0; i<segments; i++){
+      var frac = i/(segments-1);
+      var segY = topY + h*frac;
+      var wobble = Math.sin(t + i*1.3) * (iH*0.02) * (0.4+frac*0.8);
+      var segX = x + wobble;
+      var baseW = iH*0.05 * (1 - frac*0.22);
+      var flick = 0.7 + 0.3*Math.sin(t*1.7 + i*2.1);
+      var w = Math.max(2, baseW*flick);
+      var grad = ctx.createRadialGradient(segX,segY,0,segX,segY,w);
+      grad.addColorStop(0, '#fff2a8');
+      grad.addColorStop(0.4, '#ff8a2f');
+      grad.addColorStop(1, '#c81810');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.ellipse(segX, segY, w, w*1.3, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawGrenade(x, y, spinT){
+    ctx.save();
+    ctx.translate(Math.round(x), Math.round(y));
+    ctx.rotate(spinT);
+    ctx.fillStyle = '#2a3a1a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, iH*0.02, iH*0.024, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#4a5a2a';
+    ctx.beginPath();
+    ctx.ellipse(-iH*0.006, -iH*0.008, iH*0.008, iH*0.01, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(-iH*0.003, -iH*0.03, iH*0.006, iH*0.008);
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,170,48,0.9)';
+    ctx.beginPath();
+    ctx.arc(x, y-iH*0.032, iH*0.005, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function drawExplosion(x, y, progress){
+    var r = iH*0.095*(0.25+progress*0.9);
+    var alpha = Math.max(0, 1-progress*0.85);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    var grad = ctx.createRadialGradient(x,y,0,x,y,r);
+    grad.addColorStop(0,'#fff2a8');
+    grad.addColorStop(0.35,'#ff8a2f');
+    grad.addColorStop(0.7,'#c81810');
+    grad.addColorStop(1,'rgba(180,20,10,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x,y,Math.max(2,r),0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawBossAttack(){
+    var isGrenadePhase = !bossForm2;
     if(bossPhase==='charging'){
       ctx.save();
       ctx.strokeStyle = (bossForm2 && bossAttackVariant==='eyelaser') ? 'rgba(255,32,32,0.85)' : 'rgba(255,70,70,0.85)';
@@ -1776,22 +1858,36 @@
         ctx.stroke();
       });
       ctx.restore();
+
+      if(isGrenadePhase){
+        var chargeProgress = 1 - Math.max(0, bossPhaseTimer)/Math.max(0.01, bossPhaseDuration);
+        var bx = laneCenterX(bossLaneVisual, 1);
+        var by = groundY() - iH*0.015 - iH*0.36 + Math.sin(performance.now()/260)*2;
+        bossTargetLanes.forEach(function(lane, idx){
+          var tx = laneCenterX(lane, 1), ty = groundY()-4;
+          var px = bx + (tx-bx)*chargeProgress;
+          var arcH = iH*0.14;
+          var py = by + (ty-by)*chargeProgress - Math.sin(chargeProgress*Math.PI)*arcH;
+          drawGrenade(px, py, chargeProgress*10 + idx);
+        });
+      }
     } else if(bossPhase==='firing'){
       if(bossForm2 && bossAttackVariant==='lunge') return;
-      var topY = groundY() - iH*0.36;
-      var botY = groundY();
-      var w = Math.max(3, iH*0.05);
-      var alpha = Math.min(1, bossPhaseTimer/0.16);
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      bossBeamLanes.forEach(function(lane){
-        var x = laneCenterX(lane, 1);
-        ctx.fillStyle = bossBeamColor;
-        ctx.fillRect(Math.round(x-w*0.7), Math.round(topY), Math.round(w*1.4), Math.round(botY-topY));
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(Math.round(x-w*0.35), Math.round(topY), Math.round(w*0.7), Math.round(botY-topY));
-      });
-      ctx.restore();
+      var fireProgress = 1 - Math.max(0, bossPhaseTimer)/Math.max(0.01, bossPhaseDuration);
+      if(isGrenadePhase){
+        bossBeamLanes.forEach(function(lane){
+          var x = laneCenterX(lane, 1);
+          drawExplosion(x, groundY()-4, fireProgress);
+        });
+      } else {
+        var topY = groundY() - iH*0.36;
+        var botY = groundY();
+        var alpha = Math.min(1, 1-fireProgress);
+        bossBeamLanes.forEach(function(lane){
+          var x = laneCenterX(lane, 1);
+          drawFlameColumn(x, topY, botY, alpha, lane*13.7);
+        });
+      }
     }
   }
 
