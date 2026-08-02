@@ -545,6 +545,7 @@
   var BOSS2_HEALTH = 10;
   var bossForm2, bossAttackVariant, bossZoom, bossTransformFlash;
   var cutsceneActive = false;
+  var cutsceneFlashAlpha = 0;
   var bossImg1 = new Image(); bossImg1.src = 'overlord-1.png';
   var bossImg2 = new Image(); bossImg2.src = 'overlord-2.png';
 
@@ -571,6 +572,7 @@
     endingActive = false; endingTimer = 0;
     bossForm2 = false; bossAttackVariant = 'lunge'; bossZoom = 0; bossTransformFlash = 0;
     cutsceneActive = false;
+    cutsceneFlashAlpha = 0;
   }
   reset();
   cloudT = 0;
@@ -852,7 +854,7 @@
 
   function showCutsceneLine(i){
     var line = cutsceneLines[i];
-    if(line.flash) flashAlpha = 1.0;
+    if(line.flash) cutsceneFlashAlpha = 1.0;
     cutscenePortrait.src = line.img;
     cutsceneText.textContent = line.text;
   }
@@ -1726,6 +1728,11 @@
       ctx.fillRect(0,0,iW,iH);
     }
 
+    if(cutsceneFlashAlpha>0){
+      ctx.fillStyle = 'rgba(255,255,255,'+cutsceneFlashAlpha.toFixed(2)+')';
+      ctx.fillRect(0,0,iW,iH);
+    }
+
     if(endingActive && endingTimer < 2){
       var whiteout = 1 - Math.max(0,endingTimer)/2;
       ctx.fillStyle = 'rgba(255,250,235,'+(whiteout*0.9).toFixed(2)+')';
@@ -1741,6 +1748,10 @@
     lastTime = ts;
     dt = Math.min(dt, 0.05);
     cloudT += dt;
+    if(cutsceneFlashAlpha>0){
+      cutsceneFlashAlpha -= dt*3.5;
+      if(cutsceneFlashAlpha<0) cutsceneFlashAlpha=0;
+    }
     update(dt);
     render();
     requestAnimationFrame(loop);
