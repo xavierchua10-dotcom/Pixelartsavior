@@ -292,9 +292,17 @@
   .table-card__inner{
     clip-path:polygon(20px 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%, 0 20px);
     background:linear-gradient(165deg, var(--panel-a), var(--panel-b));
+    background-size:cover;
+    background-position:center;
     height:100%;
     padding:1.9rem 1.6rem 1.6rem;
     display:flex; flex-direction:column; align-items:flex-start; gap:.6rem;
+    position:relative;
+  }
+  .table-card__inner.has-bg{
+    background-image:linear-gradient(180deg, rgba(8,4,16,.74) 0%, rgba(8,4,16,.88) 100%), var(--card-bg);
+    background-size:cover;
+    background-position:center 25%;
   }
 
   .table-card__head{
@@ -708,8 +716,6 @@
 </head>
 <body>
 
-  <audio id="bgMusic" src="D_B.mp3" loop preload="auto"></audio>
-
   <div id="introScreen" class="intro-screen" tabindex="0" role="button" aria-label="Tap to enter Savior Pixel Art">
     <div class="intro-inner">
       <p class="intro-eyebrow">The Arcade Is Open</p>
@@ -774,21 +780,16 @@
       <!-- page when you upload to GitHub Pages.                         -->
       <!-- ============================================================ -->
       <article class="table-card" id="game1Container">
-        <div class="table-card__inner">
+        <div class="table-card__inner has-bg" style="--card-bg:url('card-story1.jpg');">
           <div class="table-card__head">
             <div class="emoji-badge">🏃</div>
             <div>
               <span class="table-tag">Story 01</span>
-              <h2>Sentry</h2>
+              <h2>Empty City</h2>
             </div>
           </div>
-          <p>A short pixel-art run through the night. One boss, one ending — walk into the light when it's done.</p>
-          <div class="stage">
-            <iframe id="game1Frame" src="story1.html" title="Story 1 — Sentry"
-              loading="lazy"
-              style="position:absolute; inset:0; width:100%; height:100%; border:0; background:#05010f;"></iframe>
-          </div>
-          <a class="play-btn" href="story1.html" target="_blank" rel="noopener">PLAY FULLSCREEN <span class="arrow">→</span></a>
+          <p>Wake up lost in a city gone silent at high noon. Sentry's watching from somewhere close, and it already knows you're here.</p>
+          <a class="play-btn" href="story1.html" target="_blank" rel="noopener">PLAY <span class="arrow">→</span></a>
         </div>
       </article>
       <!-- ==================== END GAME 1 CONTAINER ==================== -->
@@ -798,21 +799,16 @@
       <!-- Wired to story2.html.                                         -->
       <!-- ============================================================ -->
       <article class="table-card" id="game2Container">
-        <div class="table-card__inner">
+        <div class="table-card__inner has-bg" style="--card-bg:url('card-story2.jpg');">
           <div class="table-card__head">
             <div class="emoji-badge">🕹️</div>
             <div>
               <span class="table-tag">Story 02</span>
-              <h2>Reaper</h2>
+              <h2>Wrong Turn</h2>
             </div>
           </div>
-          <p>Twin plasma beams, one safe lane. Survive Reaper and the streets go quiet before the light.</p>
-          <div class="stage">
-            <iframe id="game2Frame" src="story2.html" title="Story 2 — Reaper"
-              loading="lazy"
-              style="position:absolute; inset:0; width:100%; height:100%; border:0; background:#05010f;"></iframe>
-          </div>
-          <a class="play-btn" href="story2.html" target="_blank" rel="noopener">PLAY FULLSCREEN <span class="arrow">→</span></a>
+          <p>Desert, hills, somewhere in between — none of it looks right. Reaper found you before you found your way out.</p>
+          <a class="play-btn" href="story2.html" target="_blank" rel="noopener">PLAY <span class="arrow">→</span></a>
         </div>
       </article>
       <!-- ==================== END GAME 2 CONTAINER ==================== -->
@@ -822,21 +818,16 @@
       <!-- Wired to story3.html.                                         -->
       <!-- ============================================================ -->
       <article class="table-card" id="game3Container">
-        <div class="table-card__inner">
+        <div class="table-card__inner has-bg" style="--card-bg:url('card-story3.jpg');">
           <div class="table-card__head">
             <div class="emoji-badge">🛡️</div>
             <div>
               <span class="table-tag">Story 03</span>
-              <h2>Overlord</h2>
+              <h2>The Descent</h2>
             </div>
           </div>
-          <p>The hardest of the three. Fastest beams, tightest timing — the final chapter before the light.</p>
-          <div class="stage">
-            <iframe id="game3Frame" src="story3.html" title="Story 3 — Overlord"
-              loading="lazy"
-              style="position:absolute; inset:0; width:100%; height:100%; border:0; background:#05010f;"></iframe>
-          </div>
-          <a class="play-btn" href="story3.html" target="_blank" rel="noopener">PLAY FULLSCREEN <span class="arrow">→</span></a>
+          <p>A voice in the dark warns you to leave. You don't. What's waiting in the neon sprawl transforms twice before it's through with you — and it stops fighting fair the moment it stops looking human.</p>
+          <a class="play-btn" href="story3.html" target="_blank" rel="noopener">PLAY <span class="arrow">→</span></a>
         </div>
       </article>
       <!-- ==================== END GAME 3 CONTAINER ==================== -->
@@ -847,7 +838,7 @@
       <!-- backdrop changing location after each one falls. No ending.   -->
       <!-- ============================================================ -->
       <article class="table-card" id="game4Container">
-        <div class="table-card__inner">
+        <div class="table-card__inner has-bg" style="--card-bg:url('card-endless.jpg');">
           <div class="table-card__head">
             <div class="emoji-badge">♾️</div>
             <div>
@@ -855,13 +846,8 @@
               <h2>All Bosses</h2>
             </div>
           </div>
-          <p>No ending — Sentry, Reaper, and Overlord keep coming back, and the city keeps changing around you.</p>
-          <div class="stage">
-            <iframe id="game4Frame" src="endless.html" title="Endless Mode"
-              loading="lazy"
-              style="position:absolute; inset:0; width:100%; height:100%; border:0; background:#05010f;"></iframe>
-          </div>
-          <a class="play-btn" href="endless.html" target="_blank" rel="noopener">PLAY FULLSCREEN <span class="arrow">→</span></a>
+          <p>No ending — Sentry, Reaper, and Overlord cycle back one after another, and the city keeps shifting under your feet.</p>
+          <a class="play-btn" href="endless.html" target="_blank" rel="noopener">PLAY <span class="arrow">→</span></a>
         </div>
       </article>
       <!-- ==================== END GAME 4 CONTAINER ==================== -->
@@ -954,72 +940,44 @@
   </script>
 
   <script>
-  // Background soundtrack — "D_B" by Savior — plays as a looping <audio>
-  // element. Lives only on this menu page: it never gets included on the
-  // individual game containers.
-  var Music = (function(){
-    var audio = document.getElementById('bgMusic');
+  // Procedurally generated smoky jazz-lounge loop — rhodes chords, a walking
+  // bass, and brushed drums — no audio file needed, so the whole page stays
+  // a single self-contained file. Lives only on this menu page: it never
+  // gets included on the individual game containers.
+var Music = (function(){
+    var audio = new Audio('theme-song.mp3');
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.55;
     var running = false, muted = false;
-    var fadeRAF = null;
-    var TARGET_VOL = 0.55;
-
-    function fadeTo(target, durationMs){
-      if (!audio) return;
-      if (fadeRAF) cancelAnimationFrame(fadeRAF);
-      var startVol = audio.volume;
-      var startTime = performance.now();
-      function step(now){
-        var t = Math.max(0, Math.min(1, (now - startTime) / durationMs));
-        var vol = startVol + (target - startVol) * t;
-        audio.volume = Math.max(0, Math.min(1, vol));
-        if (t < 1){
-          fadeRAF = requestAnimationFrame(step);
-        } else {
-          fadeRAF = null;
-          if (target === 0 && muted) audio.pause();
-        }
-      }
-      fadeRAF = requestAnimationFrame(step);
-    }
 
     function setMuted(m){
       muted = m;
-      if (!audio) return;
-      if (muted){
-        fadeTo(0, 600);
-      } else {
-        if (audio.paused){
-          audio.play().catch(function(){});
-        }
-        fadeTo(TARGET_VOL, 800);
-      }
+      audio.muted = m;
     }
 
     function start(){
-      if (!audio) return false;
-      if (!running){
-        running = true;
-        audio.volume = 0;
-        audio.play().catch(function(){ running = false; });
-      }
+      running = true;
       setMuted(false);
+      if (audio.paused){
+        audio.play().catch(function(){ /* blocked until a user gesture; next tap will retry */ });
+      }
       return true;
     }
 
     function toggle(){
-      if (!running){ return start() ? true : false; }
+      if (!running || audio.paused){ return start(); }
       setMuted(!muted);
       return !muted;
     }
 
-    function onHidden(){ if (audio && !audio.paused) audio.pause(); }
-    function onVisible(){ if (audio && running && !muted && audio.paused) audio.play().catch(function(){}); }
-
     document.addEventListener('visibilitychange', function(){
-      if (document.hidden) onHidden(); else onVisible();
+      if (!running) return;
+      if (document.hidden){ audio.pause(); }
+      else if (!muted){ audio.play().catch(function(){}); }
     });
 
-    return { start: start, toggle: toggle, isPlaying: function(){ return running && !muted; } };
+    return { start: start, toggle: toggle, isPlaying: function(){ return running && !muted && !audio.paused; } };
   })();
 
   (function(){
