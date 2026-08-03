@@ -140,10 +140,6 @@
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .countdown-overlay.show{ opacity:1; }
-  .countdown-preview{
-    width:auto; height:150px;
-    filter:drop-shadow(0 6px 10px rgba(0,0,0,.6));
-  }
   .countdown-number{
     font-family:'Press Start 2P', monospace; font-size:clamp(48px,16vw,84px); color:var(--yellow);
     text-shadow:4px 4px 0 #000, -2px -2px 0 #b5271f;
@@ -206,7 +202,6 @@
   </div>
 
   <div class="countdown-overlay" id="countdownOverlay">
-    <img class="countdown-preview" src="player-idle.png" alt="">
     <div class="countdown-number" id="countdownNumber">3</div>
     <div class="controls-row" id="countdownControls">
       <div class="control-chip"><div class="glyph">⇆</div>SWITCH LANE</div>
@@ -1418,7 +1413,6 @@
     ctx.fillText(POWERUP_LABELS[pu.type], Math.round(x), Math.round(by+1));
   }
 
-  var playerIdleImg = new Image(); playerIdleImg.src = 'player-idle.png';
   var playerRun1Img = new Image(); playerRun1Img.src = 'player-run1.png';
   var playerRun2Img = new Image(); playerRun2Img.src = 'player-run2.png';
   var playerJumpImg = new Image(); playerJumpImg.src = 'player-jump.png';
@@ -1457,6 +1451,7 @@
     if(blink) return;
 
     var bodyH = iH*0.15;
+    if(player.sliding) bodyH *= 0.72;
     var aspect = (img.complete && img.naturalWidth>0) ? (img.naturalWidth/img.naturalHeight) : 0.4;
     var bodyW = bodyH*aspect;
 

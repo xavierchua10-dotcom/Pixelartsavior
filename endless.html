@@ -1322,8 +1322,16 @@
     ctx.fillText(POWERUP_LABELS[pu.type], Math.round(x), Math.round(by+1));
   }
 
+  var playerRun1Img = new Image(); playerRun1Img.src = 'player-run1.png';
+  var playerRun2Img = new Image(); playerRun2Img.src = 'player-run2.png';
+  var playerJumpImg = new Image(); playerJumpImg.src = 'player-jump.png';
+  var playerSlideImg = new Image(); playerSlideImg.src = 'player-slide.png';
+  var playerStumbleImg = new Image(); playerStumbleImg.src = 'player-stumble.png';
+  var playerLeanLeftImg = new Image(); playerLeanLeftImg.src = 'player-lean-left.png';
+  var playerLeanRightImg = new Image(); playerLeanRightImg.src = 'player-lean-right.png';
+
   function drawPlayer(){
-    if(invulnTimer>0 && Math.floor(performance.now()/90)%2===0) return;
+    var blink = invulnTimer>0 && Math.floor(performance.now()/90)%2===0;
     var x = laneCenterX(player.visualLane,1);
     var baseY = groundY() - iH*0.015;
     var jumpOffset = 0;
@@ -1331,65 +1339,36 @@
       var jp = player.jumpT/JUMP_DURATION;
       jumpOffset = -Math.sin(jp*Math.PI)*iH*0.17;
     }
-    var bodyH = iH*0.13;
-    if(player.sliding) bodyH *= 0.55;
-    var bodyW = bodyH*0.62;
-    drawGroundShadow(x, baseY, bodyW*0.85, 0.28);
     var y = baseY + jumpOffset;
 
-    var running = !player.jumping && !player.sliding;
-    var runAmp = running ? 3.2 : 1.2;
-    var swing = Math.sin(runCycle) * runAmp;
-    var bob = running ? Math.abs(Math.cos(runCycle)) * bodyH*0.05 : 0;
-
-    var bw = bodyW, bh = bodyH*0.7;
-    var bodyTop = -bodyH*0.85;
-
-    ctx.save();
-    ctx.translate(Math.round(x), Math.round(y - bob));
-
-    if(!player.sliding){
-      var legW = Math.max(2, bodyW*0.28), legH = bodyH*0.38;
-      var legY = -legH*0.15;
-      ctx.fillStyle = '#26263a';
-      ctx.fillRect(Math.round(-bodyW*0.28+swing), Math.round(legY), Math.round(legW), Math.round(legH));
-      ctx.fillRect(Math.round(bodyW*0.28-swing-legW), Math.round(legY), Math.round(legW), Math.round(legH));
-      ctx.fillStyle = '#15151f';
-      ctx.fillRect(Math.round(-bodyW*0.28+swing), Math.round(legY+legH-2), Math.round(legW), 2);
-      ctx.fillRect(Math.round(bodyW*0.28-swing-legW), Math.round(legY+legH-2), Math.round(legW), 2);
-
-      var armW = Math.max(2, bodyW*0.24);
-      var armSwing = swing * 0.9;
-      var armTopY = player.jumping ? bodyTop - bodyH*0.15 : bodyTop + bh*0.05;
-      var armLen = (player.jumping ? bodyH*0.45 : bodyH*0.6);
-      ctx.fillStyle = '#15151f';
-      ctx.fillRect(Math.round(-bw*0.62 - armSwing), Math.round(armTopY), Math.round(armW), Math.round(armLen));
-      ctx.fillRect(Math.round(bw*0.62 + armSwing - armW), Math.round(armTopY), Math.round(armW), Math.round(armLen));
-      ctx.fillStyle = '#e8a978';
-      ctx.fillRect(Math.round(-bw*0.62 - armSwing), Math.round(armTopY+armLen-2), Math.round(armW), 2);
-      ctx.fillRect(Math.round(bw*0.62 + armSwing - armW), Math.round(armTopY+armLen-2), Math.round(armW), 2);
+    var laneDelta = player.lane - player.visualLane;
+    var img;
+    if(invulnTimer>0){
+      img = playerStumbleImg;
+    } else if(player.jumping){
+      img = playerJumpImg;
+    } else if(player.sliding){
+      img = playerSlideImg;
+    } else if(laneDelta > 0.06){
+      img = playerLeanRightImg;
+    } else if(laneDelta < -0.06){
+      img = playerLeanLeftImg;
+    } else {
+      img = Math.sin(runCycle) > 0 ? playerRun1Img : playerRun2Img;
     }
 
-    // back panel of the jacket (we're viewing him from behind, running away up the track)
-    var jacketGrad = ctx.createLinearGradient(-bw/2, 0, bw/2, 0);
-    jacketGrad.addColorStop(0, '#a855f7');
-    jacketGrad.addColorStop(1, '#2dd4bf');
-    ctx.fillStyle = jacketGrad;
-    ctx.fillRect(Math.round(-bw/2), Math.round(bodyTop), Math.round(bw), Math.round(bh));
+    if(blink) return;
 
-    ctx.strokeStyle = shadeColor('#6b3fa0', 0.5);
-    ctx.lineWidth = 1;
-    ctx.strokeRect(Math.round(-bw/2), Math.round(bodyTop), Math.round(bw), Math.round(bh));
+    var bodyH = iH*0.15;
+    if(player.sliding) bodyH *= 0.72;
+    var aspect = (img.complete && img.naturalWidth>0) ? (img.naturalWidth/img.naturalHeight) : 0.4;
+    var bodyW = bodyH*aspect;
 
-    // back of the head - beanie covers almost all of it, just a hint of neck below
-    var headSize = bodyW*0.95;
-    var headTop = bodyTop - headSize*0.75;
-    ctx.fillStyle = '#e8a978';
-    ctx.fillRect(Math.round(-headSize/2), Math.round(headTop), Math.round(headSize), Math.round(headSize*0.9));
-    ctx.fillStyle = '#15151f';
-    ctx.fillRect(Math.round(-headSize/2-1), Math.round(headTop-1), Math.round(headSize+2), Math.round(headSize*0.8));
+    drawGroundShadow(x, baseY, bodyW*0.85, 0.28);
 
-    ctx.restore();
+    if(img.complete && img.naturalWidth>0){
+      ctx.drawImage(img, Math.round(x-bodyW/2), Math.round(y-bodyH), Math.round(bodyW), Math.round(bodyH));
+    }
   }
 
   function drawFloatingBoss(){
