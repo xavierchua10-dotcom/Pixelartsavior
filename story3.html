@@ -642,6 +642,8 @@
   var cutsceneFlashAlpha = 0;
   var bossImg1 = new Image(); bossImg1.src = 'overlord-1.png';
   var bossImg2 = new Image(); bossImg2.src = 'overlord-2.png';
+  var bossImgFire = new Image(); bossImgFire.src = 'overlord-fire.png';
+  var bossImgMelee = new Image(); bossImgMelee.src = 'overlord-melee.png';
 
   function reset(){
     player = { lane:0, visualLane:0, jumping:false, jumpT:0, sliding:false, slideT:0 };
@@ -1729,7 +1731,17 @@
   }
 
   function drawFloatingBoss(){
-    var img = bossForm2 ? bossImg2 : bossImg1;
+    var img = bossImg1;
+    if(bossForm2){
+      var attacking = (bossPhase==='charging' || bossPhase==='firing');
+      if(attacking && bossAttackVariant==='eyelaser'){
+        img = bossImgFire;
+      } else if(attacking && bossAttackVariant==='lunge'){
+        img = bossImgMelee;
+      } else {
+        img = bossImg2;
+      }
+    }
     var x = laneCenterX(bossLaneVisual, 1);
     var baseY = groundY() - iH*0.015;
     var hoverY = baseY - iH*0.36 + Math.sin(performance.now()/260)*2 + bossZoom*iH*0.22;
