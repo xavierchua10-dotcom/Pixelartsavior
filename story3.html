@@ -649,7 +649,11 @@
   var bossForm2, bossAttackVariant, bossZoom, bossTransformFlash, bossRageMode;
   var cutsceneActive = false;
   var cutsceneFlashAlpha = 0;
-  var bossImg1 = new Image(); bossImg1.src = 'overlord-1.png';
+  var bossImgIdle1 = new Image(); bossImgIdle1.src = 'overlord-idle1.png';
+  var bossImgIdle2 = new Image(); bossImgIdle2.src = 'overlord-idle2.png';
+  var bossImgReady1 = new Image(); bossImgReady1.src = 'overlord-ready1.png';
+  var bossImgReady2 = new Image(); bossImgReady2.src = 'overlord-ready2.png';
+  var bossImgThrow = new Image(); bossImgThrow.src = 'overlord-throw.png';
   var bossImg2 = new Image(); bossImg2.src = 'overlord-2.png';
   var bossImgFire = new Image(); bossImgFire.src = 'overlord-fire.png';
   var bossImgMelee = new Image(); bossImgMelee.src = 'overlord-melee.png';
@@ -1740,7 +1744,7 @@
   }
 
   function drawFloatingBoss(){
-    var img = bossImg1;
+    var img;
     if(bossForm2){
       var attacking = (bossPhase==='charging' || bossPhase==='firing');
       if(attacking && bossAttackVariant==='eyelaser'){
@@ -1749,6 +1753,15 @@
         img = bossImgMelee;
       } else {
         img = bossImg2;
+      }
+    } else {
+      var walkFrame = Math.sin(performance.now()/220) > 0;
+      if(bossPhase==='firing'){
+        img = bossImgThrow;
+      } else if(bossPhase==='charging'){
+        img = walkFrame ? bossImgReady1 : bossImgReady2;
+      } else {
+        img = walkFrame ? bossImgIdle1 : bossImgIdle2;
       }
     }
     var x = laneCenterX(bossLaneVisual, 1);
