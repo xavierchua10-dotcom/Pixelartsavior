@@ -140,6 +140,10 @@
     opacity:0; pointer-events:none; transition:opacity .2s;
   }
   .countdown-overlay.show{ opacity:1; }
+  .countdown-preview{
+    width:auto; height:150px;
+    filter:drop-shadow(0 6px 10px rgba(0,0,0,.6));
+  }
   .countdown-number{
     font-family:'Press Start 2P', monospace; font-size:clamp(48px,16vw,84px); color:var(--yellow);
     text-shadow:4px 4px 0 #000, -2px -2px 0 #b5271f;
@@ -202,6 +206,7 @@
   </div>
 
   <div class="countdown-overlay" id="countdownOverlay">
+    <img class="countdown-preview" src="player-idle.png" alt="">
     <div class="countdown-number" id="countdownNumber">3</div>
     <div class="controls-row" id="countdownControls">
       <div class="control-chip"><div class="glyph">⇆</div>SWITCH LANE</div>
@@ -1417,9 +1422,13 @@
   var playerRun1Img = new Image(); playerRun1Img.src = 'player-run1.png';
   var playerRun2Img = new Image(); playerRun2Img.src = 'player-run2.png';
   var playerJumpImg = new Image(); playerJumpImg.src = 'player-jump.png';
+  var playerSlideImg = new Image(); playerSlideImg.src = 'player-slide.png';
+  var playerStumbleImg = new Image(); playerStumbleImg.src = 'player-stumble.png';
+  var playerLeanLeftImg = new Image(); playerLeanLeftImg.src = 'player-lean-left.png';
+  var playerLeanRightImg = new Image(); playerLeanRightImg.src = 'player-lean-right.png';
 
   function drawPlayer(){
-    if(invulnTimer>0 && Math.floor(performance.now()/90)%2===0) return;
+    var blink = invulnTimer>0 && Math.floor(performance.now()/90)%2===0;
     var x = laneCenterX(player.visualLane,1);
     var baseY = groundY() - iH*0.015;
     var jumpOffset = 0;
@@ -1429,15 +1438,25 @@
     }
     var y = baseY + jumpOffset;
 
+    var laneDelta = player.lane - player.visualLane;
     var img;
-    if(player.jumping){
+    if(invulnTimer>0){
+      img = playerStumbleImg;
+    } else if(player.jumping){
       img = playerJumpImg;
+    } else if(player.sliding){
+      img = playerSlideImg;
+    } else if(laneDelta > 0.06){
+      img = playerLeanRightImg;
+    } else if(laneDelta < -0.06){
+      img = playerLeanLeftImg;
     } else {
       img = Math.sin(runCycle) > 0 ? playerRun1Img : playerRun2Img;
     }
 
+    if(blink) return;
+
     var bodyH = iH*0.15;
-    if(player.sliding) bodyH *= 0.6;
     var aspect = (img.complete && img.naturalWidth>0) ? (img.naturalWidth/img.naturalHeight) : 0.4;
     var bodyW = bodyH*aspect;
 
