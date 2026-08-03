@@ -49,6 +49,9 @@
   .score-label{ font-family:'Press Start 2P', monospace; font-size:9px; color:var(--dim); letter-spacing:1px; }
   .score-value{ font-family:'Press Start 2P', monospace; font-size:18px; color:var(--yellow); text-shadow:2px 2px 0 #000; margin-top:4px; }
   .best-block{ text-align:right; }
+  .hearts{ display:flex; gap:5px; margin-top:5px; }
+  .heart{ font-family:'Press Start 2P', monospace; font-size:17px; color:var(--red); text-shadow:2px 2px 0 #000; }
+  .heart.lost{ color:#333; opacity:0.4; }
   .mute-btn{
     pointer-events:auto; margin-top:8px; width:34px; height:34px;
     background:var(--black); border:2px solid var(--yellow);
@@ -56,7 +59,6 @@
     box-shadow:3px 3px 0 #000;
   }
   .mute-btn:active{ transform:translate(2px,2px); box-shadow:1px 1px 0 #000; }
-  .combo-label{ font-family:'VT323', monospace; font-size:14px; color:var(--yellow); margin-top:2px; opacity:0; transition:opacity .2s; }
   .powerups{
     position:absolute; top:54px; left:0; right:0; display:flex; justify-content:center; gap:6px;
     opacity:0; transition:opacity .3s;
@@ -66,9 +68,7 @@
     font-family:'VT323', monospace; font-size:13px; padding:2px 7px; border:2px solid #1a1a2e;
     box-shadow:2px 2px 0 #000; color:#1a1a2e;
   }
-  .pu-magnet{ background:var(--red); color:#fff; }
   .pu-shield{ background:var(--blue); color:#fff; }
-  .pu-mult{ background:var(--yellow); color:#1a1a2e; }
 
   .boss-bar{
     position:absolute; top:90px; left:50%; transform:translateX(-50%);
@@ -126,7 +126,7 @@
     <div>
       <div class="score-label">SCORE</div>
       <div class="score-value" id="scoreValue">0</div>
-      <div class="combo-label" id="comboLabel"></div>
+      <div class="hearts" id="heartsRow"></div>
     </div>
     <div style="display:flex; flex-direction:column; align-items:flex-end;">
       <div class="best-block">
@@ -229,7 +229,7 @@
   var resumeBtn = document.getElementById('resumeBtn');
   var pauseMenuBtn = document.getElementById('pauseMenuBtn');
   var hint = document.getElementById('hint');
-  var comboLabel = document.getElementById('comboLabel');
+  var heartsRow = document.getElementById('heartsRow');
   var powerupBar = document.getElementById('powerupBar');
   var bossBar = document.getElementById('bossBar');
   var bossFill = document.getElementById('bossFill');
@@ -282,9 +282,9 @@
     src.start(t);
   }
 
-  function playCoin(){ tone(880,0.08,'square',0.16,0); tone(1318,0.10,'square',0.13,0.05); }
   function playJump(){ tone(220,0.14,'square',0.15,0,660); }
   function playCrash(){ noiseHit(0.3,0.4,0,700); tone(80,0.35,'square',0.26,0,30); }
+  function playHurt(){ noiseHit(0.16,0.3,0,900); tone(140,0.2,'square',0.22,0,70); }
   function playPowerup(){ tone(660,0.08,'square',0.18,0); tone(880,0.08,'square',0.16,0.06); tone(1100,0.10,'square',0.14,0.12); }
   function playShieldBreak(){ noiseHit(0.2,0.3,0,600); tone(150,0.2,'square',0.28,0,50); }
   function playBossStart(){ tone(90,0.35,'sawtooth',0.3,0,42); noiseHit(0.3,0.3,0.08,500); }
@@ -461,17 +461,16 @@
 
   // ---------- Persistent high score ----------
   var highScore = 0;
-  var HS_KEY = 'lane-runner-highscore';
+  var HS_KEY = 'pixelrush-endless-highscore';
   (function loadHighScore(){
     try{
-      window.storage.get(HS_KEY, false).then(function(res){
-        if(res && res.value) highScore = parseInt(res.value,10) || 0;
-        bestValueEl.textContent = highScore;
-      }).catch(function(){ highScore = 0; });
+      var saved = localStorage.getItem(HS_KEY);
+      if(saved) highScore = parseInt(saved,10) || 0;
     }catch(e){ highScore = 0; }
+    bestValueEl.textContent = highScore;
   })();
   function saveHighScore(){
-    try{ window.storage.set(HS_KEY, String(highScore), false); }catch(e){}
+    try{ localStorage.setItem(HS_KEY, String(highScore)); }catch(e){}
   }
 
   // ---------- Game constants ----------
@@ -483,8 +482,8 @@
   // ---------- Game state ----------
   var state = 'start'; // start | playing | gameover
   var player, obstacles, coins, particles, poles, powerUps;
-  var distance, score, speed, difficulty, spawnTimer, coinTimer, poleTimer, powerupTimer, runCycle, cloudT;
-  var activeEffects, comboCount, comboTimer, comboTier, comboFlashTimer, comboFlashLabel;
+  var distance, score, speed, difficulty, spawnTimer, poleTimer, powerupTimer, runCycle, cloudT;
+  var activeEffects, lives, invulnTimer, hitFlashAlpha;
 
   var FIRST_BOSS_DISTANCE = 3200;
   var BOSS_INTERVAL = 3600;
@@ -500,6 +499,8 @@
       colorA:'#b026ff', colorB:'#ffffff', hull:'#3a1470', thruster:'#220c48', eye:'rgba(220,150,255,' }
   ];
   var BOSS_HEALTH = [6, 8, 10];
+  var overlordImg = new Image();
+  overlordImg.src = 'overlord-1.png';
   var BOSS_TAUNTS = ["It's found you again.", "You shouldn't have come this far.", "Every runner reaches me eventually."];
   var LOCATIONS = [
     { name:'Neon City', bands:['#3a6fb5','#5f9bdc','#8ec3ec','#bfe2f7'], skyline:'#4a4560' },
@@ -522,9 +523,9 @@
     poles = [];
     powerUps = [];
     distance = 0; score = 0; speed = 0.55; difficulty = 0;
-    spawnTimer = 0.6; coinTimer = 1.2; poleTimer = 0; powerupTimer = 9+Math.random()*6; runCycle = 0;
-    activeEffects = { magnet:0, shield:0, multiplier:0 };
-    comboCount = 0; comboTimer = 0; comboTier = 1; comboFlashTimer = 0; comboFlashLabel = '';
+    spawnTimer = 0.6; poleTimer = 0; powerupTimer = 9+Math.random()*6; runCycle = 0;
+    activeEffects = { shield:0 };
+    lives = 3; invulnTimer = 0; hitFlashAlpha = 0;
     bossActive = false; bossHealth = 0; bossMaxHealth = 6; finalBossDefeated = false;
     nextBossDistance = FIRST_BOSS_DISTANCE;
     bossWarningTimer = 0; bossWarningShown = false; bossWarningLabel = 'BOSS INCOMING';
@@ -662,27 +663,16 @@
     });
   }
 
-  function spawnCoinTrail(){
-    var lane = randLane();
-    var rate = 1/approachTime(difficulty);
-    var count = 4 + Math.floor(Math.random()*3);
-    for(var i=0;i<count;i++){
-      coins.push({ lane:lane, pullLane:lane, z:-i*0.16, rate:rate, collected:false });
-    }
-  }
-
   function spawnPole(){
     var side = Math.random()<0.5 ? -1 : 1;
     var rate = 1/approachTime(difficulty);
     poles.push({ side:side, z:0, rate:rate });
   }
 
-  var POWERUP_TYPES = ['magnet','shield','multiplier'];
   function spawnPowerUp(){
     var lane = randLane();
     var rate = 1/approachTime(difficulty);
-    var type = POWERUP_TYPES[Math.floor(Math.random()*POWERUP_TYPES.length)];
-    powerUps.push({ lane:lane, type:type, z:0, rate:rate, collected:false });
+    powerUps.push({ lane:lane, type:'shield', z:0, rate:rate, collected:false });
   }
 
   // ---------- Particles ----------
@@ -707,13 +697,41 @@
     hud.classList.add('show');
     powerupBar.classList.add('show');
     bossBar.classList.remove('show');
+    updateHeartsHUD();
     hint.classList.add('show');
     setTimeout(function(){ hint.classList.remove('show'); }, 2600);
-    startBeat();
+    if(!beatTimer){ startBeat(); }
   }
 
   function vibrate(pattern){
     try{ if(navigator.vibrate) navigator.vibrate(pattern); }catch(e){}
+  }
+
+  function updateHeartsHUD(){
+    var html = '';
+    for(var i=0;i<3;i++){
+      html += '<span class="heart' + (i<lives?'':' lost') + '">\u2665</span>';
+    }
+    heartsRow.innerHTML = html;
+  }
+
+  function takeHit(x, y){
+    if(activeEffects.shield>0){
+      activeEffects.shield = 0;
+      playShieldBreak();
+      vibrate(35);
+      burst(x,y,'#3ca7e0',14);
+      return;
+    }
+    if(invulnTimer>0) return;
+    lives--;
+    invulnTimer = 1.2;
+    hitFlashAlpha = 0.45;
+    updateHeartsHUD();
+    playHurt();
+    vibrate(70);
+    burst(x,y,'#e4423f',10);
+    if(lives<=0) gameOver();
   }
 
   function gameOver(){
@@ -731,7 +749,6 @@
     hud.classList.remove('show');
     powerupBar.classList.remove('show');
     bossBar.classList.remove('show');
-    comboLabel.style.opacity = 0;
     setTimeout(function(){ overPanel.classList.add('show'); }, 300);
   }
 
@@ -748,7 +765,6 @@
     bestValueEl.textContent = highScore;
     hud.classList.remove('show');
     powerupBar.classList.remove('show');
-    comboLabel.style.opacity = 0;
     setTimeout(function(){ victoryPanel.classList.add('show'); }, 400);
   }
 
@@ -780,9 +796,7 @@
   // ---------- Update ----------
   function updatePowerupHUD(){
     var html = '';
-    if(activeEffects.magnet>0) html += '<div class="pu-badge pu-magnet">MAGNET '+activeEffects.magnet.toFixed(1)+'s</div>';
     if(activeEffects.shield>0) html += '<div class="pu-badge pu-shield">SHIELD '+activeEffects.shield.toFixed(1)+'s</div>';
-    if(activeEffects.multiplier>0) html += '<div class="pu-badge pu-mult">2X '+activeEffects.multiplier.toFixed(1)+'s</div>';
     powerupBar.innerHTML = html;
   }
 
@@ -790,12 +804,10 @@
     if(state !== 'playing') return;
     if(paused) return;
 
-    var scoreMult = activeEffects.multiplier>0 ? 2 : 1;
-
     distance += speed*dt*140;
     difficulty = Math.min(1, distance/4200);
     speed = 0.55 + 0.7*difficulty;
-    score += dt*speed*130*scoreMult;
+    score += dt*speed*130;
     runCycle += dt*(6+8*speed);
 
     if(player.jumping){
@@ -808,22 +820,20 @@
     }
     player.visualLane += (player.lane - player.visualLane) * Math.min(1, LANE_LERP_RATE*dt);
 
-    // power-up timers
-    ['magnet','shield','multiplier'].forEach(function(key){
-      if(activeEffects[key]>0){
-        activeEffects[key] -= dt;
-        if(activeEffects[key]<0) activeEffects[key]=0;
-      }
-    });
-
-    // combo decay
-    if(comboCount>0){
-      comboTimer -= dt;
-      if(comboTimer<=0){ comboCount=0; comboTier=1; }
+    // power-up timer
+    if(activeEffects.shield>0){
+      activeEffects.shield -= dt;
+      if(activeEffects.shield<0) activeEffects.shield=0;
     }
-    if(comboFlashTimer>0){
-      comboFlashTimer -= dt;
-      if(comboFlashTimer<0) comboFlashTimer=0;
+
+    // invulnerability / hit feedback decay
+    if(invulnTimer>0){
+      invulnTimer -= dt;
+      if(invulnTimer<0) invulnTimer=0;
+    }
+    if(hitFlashAlpha>0){
+      hitFlashAlpha -= dt*2;
+      if(hitFlashAlpha<0) hitFlashAlpha=0;
     }
 
     // ---- night / flash atmosphere ----
@@ -912,15 +922,8 @@
           bossBeamColor = Math.random()<0.5 ? bt.colorA : bt.colorB;
           playPlasmaFire();
           if(bossBeamLanes.indexOf(player.lane) !== -1){
-            if(activeEffects.shield>0){
-              activeEffects.shield = 0;
-              playShieldBreak();
-              vibrate(35);
-              var bsx = laneCenterX(player.visualLane,1), bsy = groundY()-iH*0.1;
-              burst(bsx,bsy,'#3ca7e0',14);
-            } else {
-              gameOver();
-            }
+            var bsx = laneCenterX(player.visualLane,1), bsy = groundY()-iH*0.1;
+            takeHit(bsx, bsy);
           }
         }
       } else if(bossPhase === 'firing'){
@@ -966,11 +969,6 @@
         spawnWave();
         spawnTimer = (1.5 - 0.65*difficulty) + (Math.random()*0.3-0.15);
       }
-      coinTimer -= dt;
-      if(coinTimer <= 0){
-        spawnCoinTrail();
-        coinTimer = 1.1 + Math.random()*1.1;
-      }
       powerupTimer -= dt;
       if(powerupTimer <= 0){
         spawnPowerUp();
@@ -994,45 +992,12 @@
           if(o.type==='barrier' && player.jumping) hit = false;
           if(o.type==='beam' && player.sliding) hit = false;
           if(hit){
-            if(activeEffects.shield>0){
-              activeEffects.shield = 0;
-              playShieldBreak();
-              vibrate(35);
-              var sx = laneCenterX(player.visualLane,1), sy = groundY()-iH*0.1;
-              burst(sx,sy,'#3ca7e0',14);
-            } else {
-              gameOver();
-            }
+            var sx = laneCenterX(player.visualLane,1), sy = groundY()-iH*0.1;
+            takeHit(sx, sy);
           }
         }
       }
       if(o.z > 1.2) obstacles.splice(i,1);
-    }
-
-    var magnetActive = activeEffects.magnet>0;
-    for(i=coins.length-1;i>=0;i--){
-      var c = coins[i];
-      c.z += c.rate*dt;
-      if(magnetActive && c.z>0.35){
-        c.pullLane += (player.lane - c.pullLane) * Math.min(1, 8*dt);
-      }
-      var laneMatch = magnetActive ? true : (c.lane === player.lane);
-      if(!c.collected && c.z >= 0.9 && c.z <= 1.06 && laneMatch){
-        c.collected = true;
-        comboCount++;
-        comboTimer = 1.4;
-        var newTier = 1 + Math.floor(comboCount/5)*0.5;
-        if(newTier>comboTier){
-          comboTier = newTier;
-          comboFlashTimer = 1.0;
-          comboFlashLabel = 'x'+comboTier.toFixed(1)+' COMBO';
-        }
-        score += 35*comboTier*scoreMult;
-        var cx = laneCenterX(player.visualLane,1), cy = groundY()-iH*0.08;
-        burst(cx,cy,'#ffe066',8);
-        playCoin();
-      }
-      if(c.z > 1.2) coins.splice(i,1);
     }
 
     for(i=powerUps.length-1;i>=0;i--){
@@ -1040,10 +1005,9 @@
       pu.z += pu.rate*dt;
       if(!pu.collected && pu.z >= 0.9 && pu.z <= 1.06 && pu.lane === player.lane){
         pu.collected = true;
-        activeEffects[pu.type] = pu.type==='magnet' ? 6 : (pu.type==='shield' ? 10 : 8);
+        activeEffects.shield = 10;
         var px = laneCenterX(player.visualLane,1), py = groundY()-iH*0.08;
-        var col = pu.type==='magnet' ? '#e4423f' : (pu.type==='shield' ? '#3ca7e0' : '#ffce54');
-        burst(px,py,col,12);
+        burst(px,py,'#3ca7e0',12);
         playPowerup();
       }
       if(pu.z > 1.2) powerUps.splice(i,1);
@@ -1062,8 +1026,6 @@
     }
 
     scoreValueEl.textContent = Math.floor(score);
-    comboLabel.textContent = comboCount>0 ? ('COMBO x'+comboTier.toFixed(1)) : '';
-    comboLabel.style.opacity = comboCount>0 ? 1 : 0;
     updatePowerupHUD();
   }
 
@@ -1343,30 +1305,8 @@
     ctx.fillRect(rx+rw-2-postW, ry+rh, postW, Math.round(y-(ry+rh)));
   }
 
-  function drawDiamond(cx,cy,r){
-    ctx.beginPath();
-    ctx.moveTo(cx, cy-r);
-    ctx.lineTo(cx+r, cy);
-    ctx.lineTo(cx, cy+r);
-    ctx.lineTo(cx-r, cy);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  function drawCoin(c){
-    var y = yAt(c.z), s = scaleAt(c.z), x = laneCenterX(c.pullLane,c.z);
-    var r = Math.max(2, iH*0.022*s);
-    var cy = y - iH*0.05*s;
-    var pulse = 1 + 0.15*Math.sin(performance.now()/150 + c.z*10);
-    var rr = r*pulse;
-    ctx.fillStyle = '#e0a52b';
-    drawDiamond(x, cy, rr+1);
-    ctx.fillStyle = '#ffe066';
-    drawDiamond(x, cy, rr);
-  }
-
-  var POWERUP_COLORS = { magnet:'#e4423f', shield:'#3ca7e0', multiplier:'#ffce54' };
-  var POWERUP_LABELS = { magnet:'M', shield:'S', multiplier:'2X' };
+  var POWERUP_COLORS = { shield:'#3ca7e0' };
+  var POWERUP_LABELS = { shield:'S' };
   function drawPowerBadge(pu){
     var y = yAt(pu.z), s = scaleAt(pu.z), x = laneCenterX(pu.lane,pu.z);
     var size = Math.max(4, iH*0.045*s);
@@ -1383,6 +1323,7 @@
   }
 
   function drawPlayer(){
+    if(invulnTimer>0 && Math.floor(performance.now()/90)%2===0) return;
     var x = laneCenterX(player.visualLane,1);
     var baseY = groundY() - iH*0.015;
     var jumpOffset = 0;
@@ -1456,6 +1397,27 @@
     var x = laneCenterX(bossLaneVisual, 1);
     var baseY = groundY() - iH*0.015;
     var hoverY = baseY - iH*0.36 + Math.sin(performance.now()/260)*2;
+
+    if(bossTypeIndex === 2){
+      var bodyH2 = iH*0.15;
+      var aspect = (overlordImg.complete && overlordImg.naturalWidth>0) ? (overlordImg.naturalWidth/overlordImg.naturalHeight) : 0.7;
+      var bodyW2 = bodyH2*aspect;
+      drawGroundShadow(x, baseY, bodyW2*0.42, 0.28);
+      if(bossPhase==='charging'){
+        var glowPulse2 = 0.55+0.35*Math.sin(performance.now()/90);
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,80,80,'+(0.3*glowPulse2).toFixed(2)+')';
+        ctx.beginPath();
+        ctx.arc(x, hoverY-bodyH2*0.35, Math.max(2, bodyW2*0.5*glowPulse2), 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      }
+      if(overlordImg.complete && overlordImg.naturalWidth>0){
+        ctx.drawImage(overlordImg, Math.round(x-bodyW2/2), Math.round(hoverY-bodyH2), Math.round(bodyW2), Math.round(bodyH2));
+      }
+      return;
+    }
+
     var bodyH = iH*0.13;
     var bodyW = bodyH*0.62;
     drawGroundShadow(x, baseY, bodyW*0.85, 0.28);
@@ -1562,7 +1524,6 @@
       else if(o.type==='barrier') drawBarrier(o);
       else drawBeam(o);
     }}); });
-    coins.forEach(function(c){ if(!c.collected && c.z>=0) entities.push({z:c.z, draw:function(){drawCoin(c);}}); });
     powerUps.forEach(function(pu){ if(!pu.collected) entities.push({z:pu.z, draw:function(){drawPowerBadge(pu);}}); });
 
     entities.sort(function(a,b){ return a.z-b.z; });
@@ -1574,21 +1535,6 @@
       drawFloatingBoss();
     }
     drawParticles();
-
-    if(comboFlashTimer>0){
-      ctx.save();
-      ctx.globalAlpha = Math.min(1, comboFlashTimer*2);
-      ctx.font = 'bold ' + Math.round(iH*0.06) + 'px monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#1a1a2e';
-      ctx.fillStyle = '#ffe066';
-      var ty = horizonY()*0.55;
-      ctx.strokeText(comboFlashLabel, iW/2, ty);
-      ctx.fillText(comboFlashLabel, iW/2, ty);
-      ctx.restore();
-    }
 
     if(bossWarningTimer>0){
       if(Math.sin(performance.now()/120)>0){
@@ -1636,6 +1582,11 @@
 
     if(flashAlpha>0){
       ctx.fillStyle = 'rgba(210,225,255,'+flashAlpha.toFixed(2)+')';
+      ctx.fillRect(0,0,iW,iH);
+    }
+
+    if(hitFlashAlpha>0){
+      ctx.fillStyle = 'rgba(228,66,63,'+hitFlashAlpha.toFixed(2)+')';
       ctx.fillRect(0,0,iW,iH);
     }
 
